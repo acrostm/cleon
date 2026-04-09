@@ -139,12 +139,12 @@ export function PostCard({ post }: { post: Post }) {
             </div>
           </div>
           
-          {/* Distinct Colored Visual Platform Logo */}
-          <div className="shrink-0 ml-auto flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50/50 dark:bg-slate-800/50 shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+          {/* Minimalist Visual Platform Logo */}
+          <div className="shrink-0 ml-auto flex items-center justify-center">
              <img 
                src={getPlatformLogo()} 
                alt={post.platform} 
-               className="w-4 h-4 md:w-4.5 md:h-4.5 rounded-sm object-contain opacity-[0.85] hover:opacity-100 transition-opacity drop-shadow-sm" 
+               className="w-5 h-5 md:w-6 md:h-6 rounded-sm object-contain opacity-80" 
              />
           </div>
         </div>
