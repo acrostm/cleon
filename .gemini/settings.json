@@ -1,0 +1,18 @@
+{
+  "hooksConfig": {
+    "disabled": [
+      "/Users/jiachzha/.vibe-island/bin/vibe-island-bridge --source gemini",
+      "~/.claude/hooks/codeisland-bridge --source gemini",
+      "/Users/jiachzha/.vibe-island/bin/vibe-island-bridge --source gemini",
+      "~/.claude/hooks/codeisland-bridge --source gemini",
+      "/Users/jiachzha/.vibe-island/bin/vibe-island-bridge --source gemini",
+      "~/.claude/hooks/codeisland-bridge --source gemini",
+      "/Users/jiachzha/.vibe-island/bin/vibe-island-bridge --source gemini",
+      "~/.claude/hooks/codeisland-bridge --source gemini",
+      "/Users/jiachzha/.vibe-island/bin/vibe-island-bridge --source gemini",
+      "~/.claude/hooks/codeisland-bridge --source gemini",
+      "/Users/jiachzha/.vibe-island/bin/vibe-island-bridge --source gemini",
+      "~/.claude/hooks/codeisland-bridge --source gemini"
+    ]
+  }
+}
