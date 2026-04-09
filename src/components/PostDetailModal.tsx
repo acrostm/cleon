@@ -50,62 +50,65 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
 
-        {/* Header Overlay */}
-        <DialogHeader className="p-5 md:p-6 border-b border-border/40 bg-card/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0 relative z-10">
-          <div className="flex items-center space-x-3 text-left">
-            <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
-              <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
-              <AvatarFallback className="bg-indigo-500 text-white font-bold">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col">
-              <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none uppercase">
-                {post.authorName}
-              </DialogTitle>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <img 
-              src={getPlatformLogo(post.platform, post.originalUrl)} 
-              alt={post.platform} 
-              className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
-            />
-          </div>
-        </DialogHeader>
-
-        {/* Scrollable Body */}
-        <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(90vh-140px)]">
-          <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
-            {/* Content Section */}
-            <div className="space-y-4">
-              {title && (
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
-                  <FormattedText text={title} />
-                </h2>
-              )}
-              {body && (
-                <FormattedText 
-                  text={body}
-                  className="text-[15px] md:text-base leading-relaxed font-medium text-foreground/80 tracking-normal block"
-                />
-              )}
-            </div>
-
-            {/* Full Media Grid */}
-            {post.mediaUrls.length > 0 && (
-              <div className="space-y-6">
-                {post.mediaUrls.map((url, i) => (
-                  <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
-                    <img
-                      src={url.replace(/^http:\/\//i, 'https://')}
-                      referrerPolicy="no-referrer"
-                      alt={`Media ${i}`}
-                      className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
-                    />
-                  </div>
-                ))}
+        {/* Scrollable Body with Sticky Glass Header */}
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="relative">
+            {/* Sticky Glass Header */}
+            <DialogHeader className="p-5 md:p-6 sticky top-0 z-20 border-b border-border/10 bg-card/60 backdrop-blur-xl flex flex-row items-center justify-between space-y-0 shadow-sm transition-all duration-300">
+              <div className="flex items-center space-x-3 text-left">
+                <Avatar className="w-10 h-10 border border-border/60 shadow-sm transition-transform hover:scale-105">
+                  <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
+                  <AvatarFallback className="bg-indigo-500 text-white font-bold">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none uppercase">
+                    {post.authorName}
+                  </DialogTitle>
+                </div>
               </div>
-            )}
+
+              <div className="flex items-center gap-3">
+                <img 
+                  src={getPlatformLogo(post.platform, post.originalUrl)} 
+                  alt={post.platform} 
+                  className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
+                />
+              </div>
+            </DialogHeader>
+
+            {/* Content Body */}
+            <div className="p-6 md:p-8 pt-6 md:pt-8 space-y-10 max-w-2xl mx-auto">
+              {/* Content Section */}
+              <div className="space-y-6">
+                {title && (
+                  <h2 className="text-xl md:text-3xl font-black tracking-tight leading-tight text-foreground selection:bg-indigo-500/30">
+                    <FormattedText text={title} />
+                  </h2>
+                )}
+                {body && (
+                  <FormattedText 
+                    text={body}
+                    className="text-[16px] md:text-lg leading-relaxed font-medium text-foreground/80 tracking-normal block"
+                  />
+                )}
+              </div>
+
+              {/* Full Media Grid */}
+              {post.mediaUrls.length > 0 && (
+                <div className="space-y-6">
+                  {post.mediaUrls.map((url, i) => (
+                    <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group shadow-lg">
+                      <img
+                        src={url.replace(/^http:\/\//i, 'https://')}
+                        referrerPolicy="no-referrer"
+                        alt={`Media ${i}`}
+                        className="w-full h-auto object-contain max-h-[85vh] group-hover:scale-[1.01] transition-transform duration-700"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </ScrollArea>
 
