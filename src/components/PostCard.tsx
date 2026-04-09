@@ -137,7 +137,7 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                  <img 
                    src={getPlatformLogo(post.platform, post.originalUrl)} 
                    alt={post.platform} 
-                   className="w-5 h-5 md:w-6 md:h-6 grayscale opacity-30 group-hover/card:grayscale-0 group-hover/card:opacity-100 transition-all duration-500 rounded-[4px]" 
+                   className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
                  />
               </div>
             </CardFooter>
