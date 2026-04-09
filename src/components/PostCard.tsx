@@ -60,15 +60,16 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
       </div>
 
       {/* Right Column: The Card Content */}
-      <div className="flex-1 pb-8">
+      <div className="flex-1 min-w-0 pb-8">
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={onClick}
+          className="w-full"
         >
-          <Card className="rounded-[2rem] overflow-hidden border-border/50 bg-card/40 backdrop-blur-xl hover:bg-card hover:border-indigo-500/30 transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:shadow-indigo-500/5 group/card">
+          <Card className="rounded-[2rem] overflow-hidden border-border/50 bg-card/40 backdrop-blur-xl hover:bg-card hover:border-indigo-500/30 transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:shadow-indigo-500/5 group/card w-full">
             {/* Unified Text Section (Fixed/Consistent Height) */}
-            <div className="relative max-h-[180px] md:max-h-[220px] overflow-hidden group/text">
+            <div className="relative max-h-[180px] md:max-h-[220px] overflow-hidden group/text w-full">
               <CardHeader className="p-6 pb-2">
                 {/* Mobile Date Header */}
                 <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
@@ -95,8 +96,8 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
 
             {/* Media Section (Variable Height) */}
             {mediaCount > 0 && (
-              <CardContent className="px-6 pb-6 pt-2">
-                <div className={`grid ${gridClass} gap-3 rounded-2xl overflow-hidden border border-border/40`}>
+              <CardContent className="px-6 pb-6 pt-2 w-full overflow-hidden">
+                <div className={`grid ${gridClass} gap-3 rounded-2xl overflow-hidden border border-border/40 w-full`}>
                   {post.mediaUrls.map((url, i) => {
                      const isVideo = isVideoUrl(url);
                      const isEmbed = isEmbedUrl(url);
@@ -104,13 +105,13 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                      const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
                      
                      return (
-                     <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
+                     <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 w-full ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
                         {isEmbed ? (
                           <iframe
                             src={secureUrl}
                             allowFullScreen={true}
                             allow="autoplay; fullscreen"
-                            className="w-full aspect-video border-0 bg-black"
+                            className="w-full aspect-video border-0 bg-black block"
                           />
                         ) : isVideo ? (
                           <video
