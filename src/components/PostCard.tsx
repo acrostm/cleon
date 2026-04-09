@@ -21,13 +21,17 @@ export function PostCard({ post }: { post: Post }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
 
-  const getPlatformIcon = () => {
+  const getPlatformLogo = () => {
+    let domain = 'example.com';
     switch (post.platform) {
-        case 'TWITTER': return '𝕏 X / Twitter';
-        case 'BILIBILI': return '📺 Bilibili';
-        case 'XIAOHONGSHU': return '📕 Xiaohongshu';
-        default: return '🌐 Web';
+        case 'TWITTER': domain = 'x.com'; break;
+        case 'BILIBILI': domain = 'bilibili.com'; break;
+        case 'XIAOHONGSHU': domain = 'xiaohongshu.com'; break;
+        case 'WEB': 
+            try { domain = new URL(post.originalUrl).hostname; } catch(e) {}
+            break;
     }
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
   };
 
   // Determine Title and Content
@@ -125,9 +129,6 @@ export function PostCard({ post }: { post: Post }) {
           <div className="flex flex-col flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-0.5">
               <span className="font-medium text-[13px] md:text-sm text-slate-800 dark:text-slate-200 truncate">{post.authorName}</span>
-              <span className="bg-slate-100 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 px-1.5 py-0.5 rounded text-[10px] md:text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap shadow-sm">
-                {getPlatformIcon()}
-              </span>
             </div>
             <div className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
               <span>{timeAgo}</span>
@@ -136,6 +137,15 @@ export function PostCard({ post }: { post: Post }) {
                 View Original
               </a>
             </div>
+          </div>
+          
+          {/* Distinct Colored Visual Platform Logo */}
+          <div className="shrink-0 ml-auto flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50/50 dark:bg-slate-800/50 shadow-sm border border-slate-200/80 dark:border-slate-700/80">
+             <img 
+               src={getPlatformLogo()} 
+               alt={post.platform} 
+               className="w-4 h-4 md:w-4.5 md:h-4.5 rounded-sm object-contain opacity-[0.85] hover:opacity-100 transition-opacity drop-shadow-sm" 
+             />
           </div>
         </div>
       </div>
