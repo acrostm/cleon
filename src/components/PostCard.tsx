@@ -20,7 +20,6 @@ export type Post = {
 };
 
 export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const date = new Date(post.createdAt);
   const timeStr = format(date, 'HH:mm');
   const dateStr = format(date, 'MMM dd, yyyy');
@@ -75,27 +74,11 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
               {/* Truncated Body Content */}
               {body && (
                 <div className="relative group/body">
-                   <div 
-                      className={`text-muted-foreground leading-relaxed whitespace-pre-wrap text-[15px] transition-all duration-300 ${isExpanded ? '' : 'line-clamp-3'}`}
-                   >
-                     {body}
-                   </div>
-                   
-                   {body.length > 150 && (
-                     <button 
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         setIsExpanded(!isExpanded);
-                       }}
-                       className="mt-3 text-[13px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 flex items-center gap-1.5 transition-colors relative z-10"
-                     >
-                       {isExpanded ? (
-                         <>Collapse <ChevronUp className="w-3.5 h-3.5" /></>
-                       ) : (
-                         <>Read Full <ChevronDown className="w-3.5 h-3.5" /></>
-                       )}
-                     </button>
-                   )}
+                    <div 
+                       className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-[15px] line-clamp-4 group-hover/card:text-foreground/80 transition-colors duration-300"
+                    >
+                      {body}
+                    </div>
                 </div>
               )}
 
@@ -126,10 +109,7 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm leading-none mb-1 text-foreground">{post.authorName}</span>
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 leading-none uppercase tracking-widest font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-none">
-                    {post.platform}
-                  </Badge>
+                  <span className="font-bold text-sm leading-none text-foreground">{post.authorName}</span>
                 </div>
               </div>
               

@@ -56,12 +56,9 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               <AvatarFallback className="bg-indigo-500 text-white font-bold">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none mb-1.5 uppercase">
+              <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none uppercase">
                 {post.authorName}
               </DialogTitle>
-              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 leading-none uppercase tracking-widest font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-none w-fit">
-                {post.platform}
-              </Badge>
             </div>
           </div>
 
