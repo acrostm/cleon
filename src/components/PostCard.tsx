@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { getPlatformLogo } from '@/lib/platforms';
+import { FormattedText } from './FormattedText';
 
 export type Post = {
   id: string;
@@ -10,50 +14,21 @@ export type Post = {
   platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU';
   authorName: string;
   avatarUrl: string;
+  title?: string | null;
   contentText: string;
   mediaUrls: string[];
   createdAt: string;
 };
 
 export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const date = new Date(post.createdAt);
   const timeStr = format(date, 'HH:mm');
   const dateStr = format(date, 'MMM dd, yyyy');
 
-  const getPlatformLogo = () => {
-    switch (post.platform) {
-        case 'TWITTER': return `https://www.google.com/s2/favicons?domain=x.com&sz=128`;
-        case 'BILIBILI': return `https://www.google.com/s2/favicons?domain=bilibili.com&sz=128`;
-        case 'XIAOHONGSHU': 
-            // Use a dedicated high-quality favicon for Xiaohongshu as Google's scraper often fails on it
-            return `https://www.xiaohongshu.com/favicon.ico`;
-        case 'WEB': 
-            let domain = 'example.com';
-            try { domain = new URL(post.originalUrl).hostname; } catch(e) {}
-            return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-    }
-    return `https://www.google.com/s2/favicons?domain=example.com&sz=128`;
-  };
 
   // Determine Title and Content
-  let title = '';
-  let body = '';
-  // ... (rest of title/body logic same)
-  const textSegments = post.contentText.trim().split(/\n+/);
-  if (textSegments.length > 1) {
-      title = textSegments[0];
-      body = textSegments.slice(1).join('\n');
-  } else {
-      const sentences = post.contentText.split(/(?<=[。！？.!?])/);
-      if (sentences.length > 1 && sentences[0].length < 100) {
-          title = sentences[0];
-          body = sentences.slice(1).join('').trim();
-      } else {
-          title = post.contentText;
-          body = '';
-      }
-  }
+  const title = post.title || '';
+  const body = post.contentText || '';
 
   // Grid layout helper
   const mediaCount = post.mediaUrls?.length || 0;
@@ -64,122 +39,92 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
   return (
     <div className="flex group relative">
       {/* Left Column: Detailed Timestamp */}
-      <div className="hidden md:flex flex-col items-end w-20 pt-6 pr-6 opacity-60 group-hover:opacity-100 transition-opacity">
-        <span className="text-sm font-bold text-slate-900 dark:text-white leading-none">{timeStr}</span>
-        <span className="text-[10px] text-slate-500 uppercase tracking-tighter mt-1">{dateStr}</span>
+      <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+        <span className="text-xs font-bold leading-none text-foreground">{timeStr}</span>
+        <span className="text-[9px] uppercase tracking-tighter mt-1.5 font-bold text-muted-foreground">{dateStr}</span>
       </div>
 
       {/* Center Column: The Rail Node */}
-      <div className="relative flex flex-col items-center w-10 md:w-16 pt-7">
-        <div className="z-10 w-4 h-4 rounded-full border-4 border-slate-50 dark:border-slate-950 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] group-hover:scale-125 transition-transform" />
+      <div className="relative flex flex-col items-center w-12 md:w-16 pt-9">
+        <div className="z-10 w-3 h-3 rounded-full border-2 border-background bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] group-hover:scale-125 transition-transform duration-500" />
       </div>
 
       {/* Right Column: The Card Content */}
-      <div className="flex-1 pb-4">
-        <motion.article 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+      <div className="flex-1 pb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
           onClick={onClick}
-          className="p-5 md:p-7 rounded-[2rem] bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/50 shadow-lg shadow-indigo-500/5 dark:shadow-none hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 cursor-pointer"
         >
-          {/* Mobile Date Header */}
-          <div className="flex md:hidden items-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-3">
-             {dateStr} • {timeStr}
-          </div>
-
-          {/* Dynamic Title (First Sentence) */}
-          {title && (
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-4 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-              {title}
-            </h2>
-          )}
-
-          {/* Truncated Body Content */}
-          {body && (
-            <div className="relative mb-5 group/body">
-               <div 
-                  className={`text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-[15px] transition-all duration-300 ${isExpanded ? '' : 'line-clamp-4'}`}
-               >
-                 {body}
-               </div>
-               
-               {!isExpanded && body.length > 150 && (
-                   <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-white/90 dark:from-[#0d1629]/90 to-transparent pointer-events-none" />
-               )}
-
-               {body.length > 150 && (
-                 <button 
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     setIsExpanded(!isExpanded);
-                   }}
-                   className="mt-2 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:underline flex items-center gap-1.5 transition-colors relative z-10"
-                 >
-                   {isExpanded ? (
-                     <>Collapse Selection <ChevronUp className="w-3.5 h-3.5" /></>
-                   ) : (
-                     <>Read Full Text <ChevronDown className="w-3.5 h-3.5" /></>
-                   )}
-                 </button>
-               )}
-            </div>
-          )}
-
-          {/* Responsive Media Grid */}
-          {mediaCount > 0 && (
-            <div className={`mt-4 mb-6 grid ${gridClass} gap-2.5 rounded-[1.5rem] overflow-hidden`}>
-              {post.mediaUrls.map((url, i) => (
-                 <div key={i} className={`rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950/50 border border-slate-100/50 dark:border-slate-800/50 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
-                    <img 
-                      src={url.replace(/^http:\/\//i, 'https://')} 
-                      referrerPolicy="no-referrer"
-                      alt={`Media ${i}`} 
-                      loading="lazy"
-                      className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`} 
-                    />
-                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Suppressed Metadata Footer */}
-          <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center opacity-75 hover:opacity-100 transition-opacity duration-300">
-            <div className="flex items-center space-x-3 w-full">
-              <Avatar className="w-8 h-8 md:w-9 md:h-9 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm">
-                <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
-                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-[10px] font-bold">
-                  {post.authorName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col flex-1 min-w-0">
-                <div className="flex items-center space-x-2 mb-0.5">
-                  <span className="font-medium text-[13px] md:text-sm text-slate-800 dark:text-slate-200 truncate">{post.authorName}</span>
+          <Card className="rounded-[2rem] overflow-hidden border-border/50 bg-card/40 backdrop-blur-xl hover:bg-card hover:border-indigo-500/30 transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:shadow-indigo-500/5 group/card">
+            {/* Unified Text Section (Fixed/Consistent Height) */}
+            <div className="relative max-h-[180px] md:max-h-[220px] overflow-hidden group/text">
+              <CardHeader className="p-6 pb-2">
+                {/* Mobile Date Header */}
+                <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
+                   {dateStr} • {timeStr}
                 </div>
-                <div className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
-                  <a 
-                    href={post.originalUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors flex items-center gap-1 relative z-10"
-                  >
-                    View Original
-                  </a>
+
+                {/* Dynamic Title */}
+                {title && (
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-tight text-foreground group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors duration-300">
+                    <FormattedText text={title} />
+                  </h2>
+                )}
+              </CardHeader>
+
+              <CardContent className="px-6 py-0 pb-6">
+                {body && (
+                  <FormattedText 
+                    text={body}
+                    className="text-muted-foreground leading-relaxed text-[15px] group-hover/card:text-foreground/80 transition-colors duration-300 block line-clamp-6"
+                  />
+                )}
+              </CardContent>
+            </div>
+
+            {/* Media Section (Variable Height) */}
+            {mediaCount > 0 && (
+              <CardContent className="px-6 pb-6 pt-2">
+                <div className={`grid ${gridClass} gap-3 rounded-2xl overflow-hidden border border-border/40`}>
+                  {post.mediaUrls.map((url, i) => (
+                     <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
+                        <img 
+                          src={url.replace(/^http:\/\//i, 'https://')} 
+                          referrerPolicy="no-referrer"
+                          alt={`Media ${i}`} 
+                          loading="lazy"
+                          className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`} 
+                        />
+                     </div>
+                  ))}
+                </div>
+              </CardContent>
+            )}
+
+            <CardFooter className="p-6 pt-4 flex items-center justify-between bg-muted/5 dark:bg-muted/10 border-t border-border/40">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-9 h-9 border border-border/60">
+                  <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
+                  <AvatarFallback className="bg-indigo-500 text-white font-bold">
+                    {post.authorName.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm leading-none text-foreground">{post.authorName}</span>
                 </div>
               </div>
               
-              {/* Minimalist Visual Platform Logo */}
-              <div className="shrink-0 ml-auto flex items-center justify-center">
+              <div className="flex items-center gap-4">
                  <img 
-                   src={getPlatformLogo()} 
+                   src={getPlatformLogo(post.platform, post.originalUrl)} 
                    alt={post.platform} 
-                   className="w-5 h-5 md:w-6 md:h-6 rounded-sm object-contain opacity-80" 
+                   className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
                  />
               </div>
-            </div>
-          </div>
-
-        </motion.article>
+            </CardFooter>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );

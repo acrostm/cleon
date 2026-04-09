@@ -23,6 +23,7 @@ export async function POST(req: Request) {
         platform: parsedData.platform,
         authorName: parsedData.authorName,
         avatarUrl: parsedData.avatarUrl,
+        title: parsedData.title,
         contentText: parsedData.contentText,
         mediaUrls: parsedData.mediaUrls || [],
       }

@@ -15,20 +15,31 @@ export function Timeline({ posts, isLoading, isSubmitting, onPostClick }: Props)
     <div className="relative space-y-12 pb-20">
       {/* The Vertical Rail Line */}
       {!isLoading && posts.length > 0 && (
-        <div className="absolute left-[39px] md:left-[103px] top-6 bottom-6 w-px bg-slate-200/60 dark:bg-slate-800/60" />
+        <div className="absolute left-[24px] md:left-[128px] top-8 bottom-8 w-px bg-border/40" />
       )}
 
       <div className="space-y-12">
         {isSubmitting && (
-          <div className="p-6 rounded-3xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 shadow-xl shadow-indigo-500/5 space-y-4">
-             <div className="flex items-center space-x-4">
-               <Skeleton className="h-12 w-12 rounded-full" />
-               <div className="space-y-2">
-                 <Skeleton className="h-4 w-[200px]" />
-                 <Skeleton className="h-4 w-[150px]" />
-               </div>
-             </div>
-             <Skeleton className="h-[200px] w-full rounded-2xl" />
+          <div className="flex group relative animate-pulse">
+            <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-20">
+              <Skeleton className="h-3 w-10" />
+              <Skeleton className="h-2 w-14 mt-2" />
+            </div>
+            <div className="relative flex flex-col items-center w-12 md:w-16 pt-9">
+              <div className="z-10 w-3 h-3 rounded-full bg-muted border-2 border-background" />
+            </div>
+            <div className="flex-1 pb-8">
+              <div className="p-6 rounded-[2rem] bg-card/40 border border-border/50 space-y-4">
+                 <div className="flex items-center space-x-4">
+                   <Skeleton className="h-10 w-10 rounded-full" />
+                   <div className="space-y-2">
+                     <Skeleton className="h-4 w-[200px]" />
+                     <Skeleton className="h-3 w-[150px]" />
+                   </div>
+                 </div>
+                 <Skeleton className="h-[200px] w-full rounded-2xl" />
+              </div>
+            </div>
           </div>
         )}
 

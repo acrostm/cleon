@@ -56,7 +56,8 @@ export class BilibiliParser implements ContentParser {
       platform: 'BILIBILI',
       authorName: data.owner?.name || 'Bilibili Uploader',
       avatarUrl: data.owner?.face || '',
-      contentText: data.title + '\n\n' + (data.desc || ''),
+      title: data.title || '',
+      contentText: data.desc || '',
       mediaUrls: data.pic ? [data.pic] : [],
     };
   }

@@ -18,11 +18,31 @@ export class TwitterParser implements ContentParser {
 
     const data = await res.json();
     
+    const fullText = data.text || '';
+    let title = '';
+    let body = fullText;
+
+    const textSegments = fullText.trim().split(/\n+/);
+    if (textSegments.length > 1) {
+        title = textSegments[0];
+        body = textSegments.slice(1).join('\n');
+    } else {
+        const sentences = fullText.split(/(?<=[。！？.!?])/);
+        if (sentences.length > 1 && sentences[0].length < 100) {
+            title = sentences[0];
+            body = sentences.slice(1).join('').trim();
+        } else {
+            title = fullText;
+            body = '';
+        }
+    }
+
     return {
       platform: 'TWITTER',
       authorName: data.user_name || data.user_screen_name || 'X User',
       avatarUrl: data.user_profile_image_url || '',
-      contentText: data.text || '',
+      title: title,
+      contentText: body,
       mediaUrls: data.mediaURLs || data.media_extended?.map((m: any) => m.url) || [],
     };
   }
