@@ -57,35 +57,38 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
           onClick={onClick}
         >
           <Card className="rounded-[2rem] overflow-hidden border-border/50 bg-card/40 backdrop-blur-xl hover:bg-card hover:border-indigo-500/30 transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:shadow-indigo-500/5 group/card">
-            <CardHeader className="p-6 pb-3">
-              {/* Mobile Date Header */}
-              <div className="flex md:hidden items-center gap-2 mb-4 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
-                 {dateStr} • {timeStr}
-              </div>
-
-              {/* Dynamic Title */}
-              {title && (
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-tight text-foreground group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors duration-300">
-                  <FormattedText text={title} />
-                </h2>
-              )}
-            </CardHeader>
-
-            <CardContent className="px-6 py-2 space-y-6">
-              {/* Truncated Body Content */}
-              {body && (
-                <div className="relative group/body">
-                    <div className={body.length > 120 ? "[mask-image:linear-gradient(to_bottom,black_70%,transparent_100%)]" : ""}>
-                       <FormattedText 
-                          text={body}
-                          className="text-muted-foreground leading-relaxed text-[15px] line-clamp-4 group-hover/card:text-foreground/80 transition-colors duration-300 block pb-1"
-                       />
-                    </div>
+            {/* Unified Text Section (Fixed/Consistent Height) */}
+            <div className="relative max-h-[180px] md:max-h-[220px] overflow-hidden group/text">
+              <CardHeader className="p-6 pb-2">
+                {/* Mobile Date Header */}
+                <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
+                   {dateStr} • {timeStr}
                 </div>
-              )}
 
-              {/* Responsive Media Grid */}
-              {mediaCount > 0 && (
+                {/* Dynamic Title */}
+                {title && (
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-tight text-foreground group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors duration-300">
+                    <FormattedText text={title} />
+                  </h2>
+                )}
+              </CardHeader>
+
+              <CardContent className="px-6 py-0 pb-12">
+                {body && (
+                  <FormattedText 
+                    text={body}
+                    className="text-muted-foreground leading-relaxed text-[15px] group-hover/card:text-foreground/80 transition-colors duration-300 block"
+                  />
+                )}
+              </CardContent>
+
+              {/* Enhanced Gradient Overlay for truncation */}
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card via-card/60 to-transparent pointer-events-none" />
+            </div>
+
+            {/* Media Section (Variable Height) */}
+            {mediaCount > 0 && (
+              <CardContent className="px-6 pb-6 pt-2">
                 <div className={`grid ${gridClass} gap-3 rounded-2xl overflow-hidden border border-border/40`}>
                   {post.mediaUrls.map((url, i) => (
                      <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
@@ -99,8 +102,8 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                      </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
+              </CardContent>
+            )}
 
             <CardFooter className="p-6 pt-4 flex items-center justify-between bg-muted/5 dark:bg-muted/10 border-t border-border/40">
               <div className="flex items-center gap-3">
