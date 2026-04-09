@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getPlatformLogo } from '@/lib/platforms';
+import { FormattedText } from './FormattedText';
 
 export type Post = {
   id: string;
@@ -65,7 +66,7 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
               {/* Dynamic Title */}
               {title && (
                 <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-tight text-foreground group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors duration-300">
-                  {title}
+                  <FormattedText text={title} />
                 </h2>
               )}
             </CardHeader>
@@ -74,11 +75,10 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
               {/* Truncated Body Content */}
               {body && (
                 <div className="relative group/body">
-                    <div 
-                       className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-[15px] line-clamp-4 group-hover/card:text-foreground/80 transition-colors duration-300"
-                    >
-                      {body}
-                    </div>
+                    <FormattedText 
+                       text={body}
+                       className="text-muted-foreground leading-relaxed text-[15px] line-clamp-4 group-hover/card:text-foreground/80 transition-colors duration-300 block"
+                    />
                 </div>
               )}
 

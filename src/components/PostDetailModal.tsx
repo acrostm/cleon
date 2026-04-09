@@ -15,6 +15,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { getPlatformLogo } from '@/lib/platforms';
+import { FormattedText } from './FormattedText';
 
 interface Props {
   post: Post | null;
@@ -78,13 +79,14 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
             <div className="space-y-4">
               {title && (
                 <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
-                  {title}
+                  <FormattedText text={title} />
                 </h2>
               )}
               {body && (
-                <div className="text-[15px] md:text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground/80 tracking-normal">
-                  {body}
-                </div>
+                <FormattedText 
+                  text={body}
+                  className="text-[15px] md:text-base leading-relaxed font-medium text-foreground/80 tracking-normal block"
+                />
               )}
             </div>
 
