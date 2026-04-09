@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
+import { extractUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 
 export async function POST(req: Request) {
   try {
-    const { url } = await req.json();
+    const body = await req.json();
+    const rawUrl = body.url;
 
-    if (!url) {
+    if (!rawUrl) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
+
+    const url = extractUrl(rawUrl) || rawUrl; // fallback to raw string if regex fails
 
     const parser = getParserForUrl(url);
     const parsedData = await parser.parse(url);
