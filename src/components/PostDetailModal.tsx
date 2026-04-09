@@ -75,8 +75,8 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
             </div>
           </DialogHeader>
 
-          {/* Scrollable Content — starts below header, scrolls underneath it */}
-          <ScrollArea className="h-full">
+          {/* Scrollable Content — native scroll, fills entire container */}
+          <div className="absolute inset-0 overflow-y-auto">
             <div className="pt-[80px] px-6 pb-6 md:px-8 md:pb-8 space-y-8 max-w-2xl mx-auto">
               {/* Content Section */}
               <div className="space-y-4">
@@ -109,7 +109,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Footer Actions */}
