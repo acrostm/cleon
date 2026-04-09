@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import { after } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
 import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
