@@ -8,12 +8,9 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
 
@@ -29,14 +26,12 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   if (!post) return null;
 
-  // Determine Title and Content
   const title = post.title || '';
   const body = post.contentText || '';
 
   const handleDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
-      // Auto-reset confirmation after 3 seconds
       setTimeout(() => setConfirmDelete(false), 3000);
       return;
     }
@@ -50,34 +45,34 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
 
-        {/* Scrollable Body — header is inside so content scrolls beneath it */}
-        <ScrollArea className="flex-1 overflow-y-auto">
+        {/*
+          Simple layout:
+          - One scrollable div (flex-1 min-h-0 overflow-y-auto) — direct flex child
+          - Glass header inside it as sticky top-0 — stays put while content scrolls under
+          - Footer outside as shrink-0 — always at bottom
+          No absolute positioning. No wrapper divs. No h-full.
+        */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {/* Sticky Glassmorphism Header */}
-          <DialogHeader className="sticky top-0 z-30 p-5 md:p-6 border-b border-white/[0.06] bg-background/40 supports-[backdrop-filter]:bg-background/40 backdrop-blur-xl flex flex-row items-center justify-between space-y-0">
-            <div className="flex items-center space-x-3 text-left">
+          <div className="sticky top-0 z-30 p-5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
               <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
                 <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
                 <AvatarFallback className="bg-indigo-500 text-white font-bold">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <div className="flex flex-col">
-                <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none uppercase">
-                  {post.authorName}
-                </DialogTitle>
-              </div>
+              <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none uppercase">
+                {post.authorName}
+              </DialogTitle>
             </div>
-
-            <div className="flex items-center gap-3">
-              <img 
-                src={getPlatformLogo(post.platform, post.originalUrl)} 
-                alt={post.platform} 
-                className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
-              />
-            </div>
-          </DialogHeader>
+            <img 
+              src={getPlatformLogo(post.platform, post.originalUrl)} 
+              alt={post.platform} 
+              className="w-5 h-5 md:w-6 md:h-6 rounded-[4px]" 
+            />
+          </div>
 
           {/* Content */}
-          <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
-            {/* Content Section */}
+          <div className="px-6 py-6 md:px-8 md:py-8 space-y-8 max-w-2xl mx-auto">
             <div className="space-y-4">
               {title && (
                 <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
@@ -92,7 +87,6 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               )}
             </div>
 
-            {/* Full Media Grid */}
             {post.mediaUrls.length > 0 && (
               <div className="space-y-6">
                 {post.mediaUrls.map((url, i) => (
@@ -108,10 +102,10 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
-        {/* Footer Actions */}
-        <DialogFooter className="p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
+        {/* Footer */}
+        <DialogFooter className="shrink-0 p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
           <Button
             variant="ghost"
             className="text-indigo-600 dark:text-indigo-400 font-bold tracking-tight hover:bg-indigo-500/10 transition-all group rounded-full px-6"
