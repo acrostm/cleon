@@ -26,8 +26,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, data: post }, { status: 201 });
   } catch (error: any) {
-    console.error('Error parsing feed URL:', error);
-    return NextResponse.json({ error: error.message || 'Failed to parse URL' }, { status: 500 });
+    console.error('------- [API CRASH] Error parsing feed URL -------');
+    console.error(error);
+    return NextResponse.json({ 
+      error: error.message || 'Failed to parse URL',
+      details: process.env.NODE_ENV !== 'production' ? error.stack : undefined 
+    }, { status: 500 });
   }
 }
 
