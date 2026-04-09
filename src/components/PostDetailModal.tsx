@@ -45,10 +45,10 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   return (
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all selection:bg-indigo-500/20 shadow-2xl">
+      <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
         
         {/* Header Overlay */}
-        <DialogHeader className="p-5 md:p-6 border-b border-border/40 bg-card/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0 sticky top-0 z-10">
+        <DialogHeader className="p-5 md:p-6 border-b border-border/40 bg-card/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0 relative z-10">
           <div className="flex items-center space-x-3 text-left">
             <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
               <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
