@@ -75,10 +75,12 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
               {/* Truncated Body Content */}
               {body && (
                 <div className="relative group/body">
-                    <FormattedText 
-                       text={body}
-                       className="text-muted-foreground leading-relaxed text-[15px] line-clamp-4 group-hover/card:text-foreground/80 transition-colors duration-300 block"
-                    />
+                    <div className={body.length > 120 ? "[mask-image:linear-gradient(to_bottom,black_70%,transparent_100%)]" : ""}>
+                       <FormattedText 
+                          text={body}
+                          className="text-muted-foreground leading-relaxed text-[15px] line-clamp-4 group-hover/card:text-foreground/80 transition-colors duration-300 block pb-1"
+                       />
+                    </div>
                 </div>
               )}
 
