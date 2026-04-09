@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         if (textContent) {
           // Extract the first valid URL from the message text
           const rawUrl = extractUrl(textContent);
-          
+
           if (!rawUrl) {
             return NextResponse.json({ success: true });
           }
@@ -124,13 +124,13 @@ export async function POST(req: Request) {
             console.log('Skipping already processed message_id:', message.message_id);
             return NextResponse.json({ success: true });
           }
-          
+
           processedMessageIds.add(message.message_id);
           // Keep the cache from growing indefinitely
           if (processedMessageIds.size > 1000) {
             const iterator = processedMessageIds.values();
             for (let i = 0; i < 500; i++) {
-               processedMessageIds.delete(iterator.next().value!);
+              processedMessageIds.delete(iterator.next().value!);
             }
           }
 
@@ -180,6 +180,8 @@ export async function POST(req: Request) {
           });
         }
       }
+
+      // Return 200 OK immediately so Feishu doesn't retry
       return NextResponse.json({ success: true });
     }
 

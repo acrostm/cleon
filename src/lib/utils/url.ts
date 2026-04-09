@@ -33,22 +33,37 @@ export function validateUrl(urlString: string): boolean {
       return false;
     }
 
-    // 2. SSRF Protection: Block localhost and private IP ranges
+    // 2. SSRF Protection: Block localhost and private/reserved IP ranges
     const hostname = url.hostname;
 
+    // Strip trailing dots (e.g. "localhost." normalises to "localhost")
+    const normalizedHostname = hostname.replace(/\.+$/, '');
+
+    // IPv6 loopback / link-local / ULA
     if (
-      hostname === 'localhost' ||
-      hostname.startsWith('127.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('192.168.') ||
-      hostname.endsWith('.local')
+      normalizedHostname === '::1' ||
+      normalizedHostname.toLowerCase().startsWith('fe80:') ||
+      normalizedHostname.toLowerCase().startsWith('fc') ||
+      normalizedHostname.toLowerCase().startsWith('fd')
+    ) {
+      return false;
+    }
+
+    if (
+      normalizedHostname === 'localhost' ||
+      normalizedHostname === '0.0.0.0' ||
+      normalizedHostname.startsWith('127.') ||
+      normalizedHostname.startsWith('10.') ||
+      normalizedHostname.startsWith('192.168.') ||
+      normalizedHostname.startsWith('169.254.') || // link-local
+      normalizedHostname.endsWith('.local')
     ) {
       return false;
     }
 
     // Check for 172.16.x.x - 172.31.x.x
-    if (hostname.startsWith('172.')) {
-      const secondOctet = parseInt(hostname.split('.')[1], 10);
+    if (normalizedHostname.startsWith('172.')) {
+      const secondOctet = parseInt(normalizedHostname.split('.')[1], 10);
       if (secondOctet >= 16 && secondOctet <= 31) {
         return false;
       }
