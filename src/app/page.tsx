@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react';
 import { Timeline } from '@/components/Timeline';
 import { FloatingActionMenu } from '@/components/FloatingActionMenu';
+import { PostDetailModal } from '@/components/PostDetailModal';
 import { Post } from '@/components/PostCard';
 import { toast } from 'sonner';
+import { AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   useEffect(() => {
     fetch('/api/feed')
@@ -35,7 +38,7 @@ export default function Home() {
       if (data.success) {
         setPosts(prev => [data.data, ...prev]);
         toast.success('Successfully added to your timeline');
-        return true; // Return success for modal closing
+        return true; 
       } else {
         console.error('[API Error]:', data.error, data.details || '');
         toast.error(data.error || 'Failed to parse URL');
@@ -50,6 +53,25 @@ export default function Home() {
     }
   };
 
+  const handleDelete = async (postId: string) => {
+    try {
+      const res = await fetch(`/api/feed/${postId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+        toast.success('Post removed from timeline');
+      } else {
+        toast.error(data.error || 'Failed to delete post');
+      }
+    } catch (err) {
+      console.error('[Delete Error]:', err);
+      toast.error('Failed to delete post');
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:py-12">
       <div className="max-w-2xl mx-auto flex flex-col min-h-[calc(100vh-6rem)]">
@@ -57,6 +79,7 @@ export default function Home() {
           posts={posts} 
           isLoading={isLoading} 
           isSubmitting={isSubmitting} 
+          onPostClick={(post) => setSelectedPost(post)}
         />
 
         {/* Branding Footer */}
@@ -73,6 +96,16 @@ export default function Home() {
         onSubmit={handleSubmit} 
         isSubmitting={isSubmitting} 
       />
+
+      <AnimatePresence>
+        {selectedPost && (
+          <PostDetailModal 
+            post={selectedPost} 
+            onClose={() => setSelectedPost(null)}
+            onDelete={handleDelete}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }

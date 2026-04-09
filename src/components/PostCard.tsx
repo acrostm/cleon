@@ -15,28 +15,31 @@ export type Post = {
   createdAt: string;
 };
 
-export function PostCard({ post }: { post: Post }) {
+export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const date = new Date(post.createdAt);
   const timeStr = format(date, 'HH:mm');
   const dateStr = format(date, 'MMM dd, yyyy');
 
   const getPlatformLogo = () => {
-    let domain = 'example.com';
     switch (post.platform) {
-        case 'TWITTER': domain = 'x.com'; break;
-        case 'BILIBILI': domain = 'bilibili.com'; break;
-        case 'XIAOHONGSHU': domain = 'xiaohongshu.com'; break;
+        case 'TWITTER': return `https://www.google.com/s2/favicons?domain=x.com&sz=128`;
+        case 'BILIBILI': return `https://www.google.com/s2/favicons?domain=bilibili.com&sz=128`;
+        case 'XIAOHONGSHU': 
+            // Use a dedicated high-quality favicon for Xiaohongshu as Google's scraper often fails on it
+            return `https://www.xiaohongshu.com/favicon.ico`;
         case 'WEB': 
+            let domain = 'example.com';
             try { domain = new URL(post.originalUrl).hostname; } catch(e) {}
-            break;
+            return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
     }
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+    return `https://www.google.com/s2/favicons?domain=example.com&sz=128`;
   };
 
   // Determine Title and Content
   let title = '';
   let body = '';
+  // ... (rest of title/body logic same)
   const textSegments = post.contentText.trim().split(/\n+/);
   if (textSegments.length > 1) {
       title = textSegments[0];
@@ -60,7 +63,7 @@ export function PostCard({ post }: { post: Post }) {
 
   return (
     <div className="flex group relative">
-      {/* Left Column: Detailed Timestamp (Hidden on mobile, stays compact) */}
+      {/* Left Column: Detailed Timestamp */}
       <div className="hidden md:flex flex-col items-end w-20 pt-6 pr-6 opacity-60 group-hover:opacity-100 transition-opacity">
         <span className="text-sm font-bold text-slate-900 dark:text-white leading-none">{timeStr}</span>
         <span className="text-[10px] text-slate-500 uppercase tracking-tighter mt-1">{dateStr}</span>
@@ -76,7 +79,8 @@ export function PostCard({ post }: { post: Post }) {
         <motion.article 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="p-5 md:p-7 rounded-[2rem] bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/50 shadow-lg shadow-indigo-500/5 dark:shadow-none hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300"
+          onClick={onClick}
+          className="p-5 md:p-7 rounded-[2rem] bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/50 shadow-lg shadow-indigo-500/5 dark:shadow-none hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 cursor-pointer"
         >
           {/* Mobile Date Header */}
           <div className="flex md:hidden items-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-3">
@@ -85,14 +89,14 @@ export function PostCard({ post }: { post: Post }) {
 
           {/* Dynamic Title (First Sentence) */}
           {title && (
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-4 leading-snug">
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-4 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
               {title}
             </h2>
           )}
 
           {/* Truncated Body Content */}
           {body && (
-            <div className="relative mb-5 group">
+            <div className="relative mb-5 group/body">
                <div 
                   className={`text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-[15px] transition-all duration-300 ${isExpanded ? '' : 'line-clamp-4'}`}
                >
@@ -105,8 +109,11 @@ export function PostCard({ post }: { post: Post }) {
 
                {body.length > 150 && (
                  <button 
-                   onClick={() => setIsExpanded(!isExpanded)}
-                   className="mt-2 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:underline flex items-center gap-1.5 transition-colors"
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     setIsExpanded(!isExpanded);
+                   }}
+                   className="mt-2 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:underline flex items-center gap-1.5 transition-colors relative z-10"
                  >
                    {isExpanded ? (
                      <>Collapse Selection <ChevronUp className="w-3.5 h-3.5" /></>
@@ -128,7 +135,7 @@ export function PostCard({ post }: { post: Post }) {
                       referrerPolicy="no-referrer"
                       alt={`Media ${i}`} 
                       loading="lazy"
-                      className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in`} 
+                      className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`} 
                     />
                  </div>
               ))}
@@ -149,7 +156,13 @@ export function PostCard({ post }: { post: Post }) {
                   <span className="font-medium text-[13px] md:text-sm text-slate-800 dark:text-slate-200 truncate">{post.authorName}</span>
                 </div>
                 <div className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
-                  <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors flex items-center gap-1">
+                  <a 
+                    href={post.originalUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors flex items-center gap-1 relative z-10"
+                  >
                     View Original
                   </a>
                 </div>

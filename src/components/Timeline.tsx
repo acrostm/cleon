@@ -7,9 +7,10 @@ interface Props {
   posts: Post[];
   isLoading: boolean;
   isSubmitting: boolean;
+  onPostClick: (post: Post) => void;
 }
 
-export function Timeline({ posts, isLoading, isSubmitting }: Props) {
+export function Timeline({ posts, isLoading, isSubmitting, onPostClick }: Props) {
   return (
     <div className="relative space-y-12 pb-20">
       {/* The Vertical Rail Line */}
@@ -36,7 +37,13 @@ export function Timeline({ posts, isLoading, isSubmitting }: Props) {
              {[1,2,3].map(i => <Skeleton key={i} className="h-64 w-full rounded-3xl" />)}
           </div>
         ) : (
-          posts.map(post => <PostCard key={post.id} post={post} />)
+          posts.map(post => (
+            <PostCard 
+              key={post.id} 
+              post={post} 
+              onClick={() => onPostClick(post)} 
+            />
+          ))
         )}
       </div>
     </div>
