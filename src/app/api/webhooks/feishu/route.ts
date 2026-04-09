@@ -113,6 +113,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true });
           }
 
+          if (!validateUrl(rawUrl)) {
+            console.warn('Blocked potentially unsafe or invalid URL:', rawUrl);
+            await replyToMessage(message.message_id, "⚠️ Rejected: The provided URL is invalid or unsafe.");
+            return NextResponse.json({ success: true });
+          }
+
           // If we've already seen this message ID, it's a Feishu retry
           if (processedMessageIds.has(message.message_id)) {
             console.log('Skipping already processed message_id:', message.message_id);

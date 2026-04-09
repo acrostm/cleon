@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
-import { extractUrl } from '@/lib/utils/url';
+import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 
 export async function POST(req: Request) {
@@ -13,6 +13,10 @@ export async function POST(req: Request) {
     }
 
     const url = extractUrl(rawUrl) || rawUrl; // fallback to raw string if regex fails
+
+    if (!validateUrl(url)) {
+      return NextResponse.json({ error: 'Invalid or unsafe URL provided' }, { status: 400 });
+    }
 
     const parser = getParserForUrl(url);
     const parsedData = await parser.parse(url);
