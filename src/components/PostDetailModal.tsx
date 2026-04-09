@@ -50,10 +50,10 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
 
-        {/* Scrollable Body — header is inside so content scrolls beneath it */}
-        <ScrollArea className="flex-1 overflow-y-auto">
-          {/* Sticky Glassmorphism Header */}
-          <DialogHeader className="sticky top-0 z-30 p-5 md:p-6 border-b border-white/[0.06] bg-background/40 supports-[backdrop-filter]:bg-background/40 backdrop-blur-xl flex flex-row items-center justify-between space-y-0">
+        {/* Content area: header floats above scrollable content */}
+        <div className="relative flex-1 min-h-0">
+          {/* Fixed Glassmorphism Header — stays in place, content scrolls behind it */}
+          <DialogHeader className="absolute top-0 inset-x-0 z-30 p-5 md:p-6 border-b border-white/[0.06] bg-background/40 supports-[backdrop-filter]:bg-background/40 backdrop-blur-xl flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center space-x-3 text-left">
               <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
                 <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
@@ -75,40 +75,42 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
             </div>
           </DialogHeader>
 
-          {/* Content */}
-          <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
-            {/* Content Section */}
-            <div className="space-y-4">
-              {title && (
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
-                  <FormattedText text={title} />
-                </h2>
-              )}
-              {body && (
-                <FormattedText 
-                  text={body}
-                  className="text-[15px] md:text-base leading-relaxed font-medium text-foreground/80 tracking-normal block"
-                />
+          {/* Scrollable Content — starts below header, scrolls underneath it */}
+          <ScrollArea className="h-full">
+            <div className="pt-[72px] p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
+              {/* Content Section */}
+              <div className="space-y-4">
+                {title && (
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
+                    <FormattedText text={title} />
+                  </h2>
+                )}
+                {body && (
+                  <FormattedText 
+                    text={body}
+                    className="text-[15px] md:text-base leading-relaxed font-medium text-foreground/80 tracking-normal block"
+                  />
+                )}
+              </div>
+
+              {/* Full Media Grid */}
+              {post.mediaUrls.length > 0 && (
+                <div className="space-y-6">
+                  {post.mediaUrls.map((url, i) => (
+                    <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
+                      <img
+                        src={url.replace(/^http:\/\//i, 'https://')}
+                        referrerPolicy="no-referrer"
+                        alt={`Media ${i}`}
+                        className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-
-            {/* Full Media Grid */}
-            {post.mediaUrls.length > 0 && (
-              <div className="space-y-6">
-                {post.mediaUrls.map((url, i) => (
-                  <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
-                    <img
-                      src={url.replace(/^http:\/\//i, 'https://')}
-                      referrerPolicy="no-referrer"
-                      alt={`Media ${i}`}
-                      className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
         {/* Footer Actions */}
         <DialogFooter className="p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
