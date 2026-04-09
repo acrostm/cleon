@@ -33,7 +33,7 @@ export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
         <LinkIcon className="w-5 h-5" />
       </div>
       <Input
-        type="url"
+        type="text"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="Drop a Twitter, Bilibili, or Web link here..."

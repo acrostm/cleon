@@ -29,19 +29,31 @@ export class XiaohongshuParser implements ContentParser {
       const jsonString = stateMatch[1].replace(/undefined/g, 'null');
       const state = JSON.parse(jsonString);
       
-      // The state structure typically holds the note deep inside
+      let post: any = null;
+      let authorName = 'Unknown Red User';
+      let avatarUrl = '';
+      
+      // Structure A (Standard Direct Link)
       const noteMap = state.note?.noteDetailMap || state.noteData?.noteDetailMap;
-      if (!noteMap) {
-         throw new Error("Failed to find noteDetailMap in Xiaohongshu state.");
+      if (noteMap) {
+          const noteKeys = Object.keys(noteMap);
+          if (noteKeys.length > 0) {
+              post = noteMap[noteKeys[0]].note;
+              authorName = post.user?.nickname || authorName;
+              avatarUrl = post.user?.avatar || avatarUrl;
+          }
       }
       
-      const noteKeys = Object.keys(noteMap);
-      if (noteKeys.length === 0) {
-         throw new Error("Note detail map is empty.");
+      // Structure B (Alternate format deployed for some shortlinks)
+      if (!post && state.noteData?.data?.noteData) {
+          post = state.noteData.data.noteData;
+          authorName = post.user?.nickname || authorName;
+          avatarUrl = post.user?.avatar || avatarUrl;
       }
       
-      // Root note payload
-      const post = noteMap[noteKeys[0]].note;
+      if (!post) {
+         throw new Error("Failed to find Xiaohongshu post payload in state.");
+      }
       
       // Extract Images
       const images: string[] = [];
@@ -49,6 +61,7 @@ export class XiaohongshuParser implements ContentParser {
          post.imageList.forEach((img: any) => {
              // Prefer un-watermarked/hd options if available
              if (img.urlDefault) images.push(img.urlDefault);
+             else if (img.infoList && img.infoList[0]?.url) images.push(img.infoList[0].url);
              else if (img.urlOriginal) images.push(img.urlOriginal);
              else if (img.url) images.push(img.url);
          });
@@ -61,8 +74,8 @@ export class XiaohongshuParser implements ContentParser {
       
       return {
         platform: 'XIAOHONGSHU',
-        authorName: post.user?.nickname || 'Unknown Red User',
-        avatarUrl: post.user?.avatar || '',
+        authorName: authorName,
+        avatarUrl: avatarUrl,
         contentText: post.desc ? `${post.title ? post.title + '\n\n' : ''}${post.desc}` : post.title || '',
         mediaUrls: images
       };
