@@ -1,57 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SubmitUrlForm } from './SubmitUrlForm';
 import { PostCard, Post } from './PostCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
 
-export function Timeline() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+interface Props {
+  posts: Post[];
+  isLoading: boolean;
+  isSubmitting: boolean;
+}
 
-  useEffect(() => {
-    fetch('/api/feed')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setPosts(data.data);
-        }
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const handleSubmit = async (url: string) => {
-    setIsSubmitting(true);
-    try {
-      const res = await fetch('/api/feed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        setPosts(prev => [data.data, ...prev]);
-        toast.success('Successfully added to your timeline');
-      } else {
-        console.error('[API Error]:', data.error, data.details || '');
-        toast.error(data.error || 'Failed to parse URL');
-      }
-    } catch (err) {
-      console.error('[Network Catch Error]:', err);
-      toast.error('Network error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+export function Timeline({ posts, isLoading, isSubmitting }: Props) {
   return (
-    <div className="space-y-10">
-      <SubmitUrlForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
+    <div className="relative space-y-12 pb-20">
+      {/* The Vertical Rail Line */}
+      {!isLoading && posts.length > 0 && (
+        <div className="absolute left-[39px] md:left-[103px] top-6 bottom-6 w-px bg-slate-200/60 dark:bg-slate-800/60" />
+      )}
 
-      <div className="space-y-6">
+      <div className="space-y-12">
         {isSubmitting && (
           <div className="p-6 rounded-3xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 shadow-xl shadow-indigo-500/5 space-y-4">
              <div className="flex items-center space-x-4">
