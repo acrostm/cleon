@@ -39,16 +39,23 @@ export class XiaohongshuParser implements ContentParser {
           const noteKeys = Object.keys(noteMap);
           if (noteKeys.length > 0) {
               post = noteMap[noteKeys[0]].note;
-              authorName = post.user?.nickname || authorName;
-              avatarUrl = post.user?.avatar || avatarUrl;
+              authorName = post.user?.nickname || post.user?.nickName || post.user?.name || authorName;
+              avatarUrl = post.user?.avatar || post.user?.avatarUrl || post.user?.image || avatarUrl;
           }
       }
       
       // Structure B (Alternate format deployed for some shortlinks)
       if (!post && state.noteData?.data?.noteData) {
           post = state.noteData.data.noteData;
-          authorName = post.user?.nickname || authorName;
-          avatarUrl = post.user?.avatar || avatarUrl;
+          authorName = post.user?.nickname || post.user?.nickName || post.user?.name || authorName;
+          avatarUrl = post.user?.avatar || post.user?.avatarUrl || post.user?.image || avatarUrl;
+      }
+
+      // Structure C (Collection fallback)
+      if (authorName === 'Unknown Red User' && state.noteData?.collectionData?.userInfo) {
+          const user = state.noteData.collectionData.userInfo;
+          authorName = user.nickName || user.nickname || user.name || authorName;
+          avatarUrl = user.avatarUrl || user.avatar || user.image || avatarUrl;
       }
       
       if (!post) {

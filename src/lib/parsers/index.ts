@@ -2,9 +2,10 @@ import { TwitterParser } from './twitter';
 import { BilibiliParser } from './bilibili';
 import { WebParser } from './web';
 import { XiaohongshuParser } from './xiaohongshu';
+import { DouyinParser } from './douyin';
 
 export interface ParsedData {
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU';
+  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN';
   authorName: string;
   avatarUrl: string;
   title?: string;
@@ -21,6 +22,7 @@ const parsers: ContentParser[] = [
   new TwitterParser(),
   new BilibiliParser(),
   new XiaohongshuParser(),
+  new DouyinParser(),
   new WebParser(), // Always last as fallback
 ];
 

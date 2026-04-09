@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Share2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
+import { toast } from 'sonner';
 
 export type Post = {
   id: string;
@@ -36,8 +37,18 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
   if (mediaCount === 2) gridClass = "grid-cols-2";
   else if (mediaCount >= 3) gridClass = "grid-cols-2 md:grid-cols-3";
 
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}/#${post.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copied to clipboard');
+    }).catch(() => {
+      toast.error('Failed to copy link');
+    });
+  };
+
   return (
-    <div className="flex group relative">
+    <div id={post.id} className="flex group relative">
       {/* Left Column: Detailed Timestamp */}
       <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
         <span className="text-xs font-bold leading-none text-foreground">{timeStr}</span>
@@ -116,6 +127,13 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
               </div>
               
               <div className="flex items-center gap-4">
+                 <button 
+                   onClick={handleShare}
+                   className="p-2 -mr-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
+                   title="Share link"
+                 >
+                   <Share2 className="w-4 h-4 md:w-5 md:h-5" />
+                 </button>
                  <img 
                    src={getPlatformLogo(post.platform, post.originalUrl)} 
                    alt={post.platform} 

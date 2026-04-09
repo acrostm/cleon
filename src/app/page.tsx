@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Timeline } from '@/components/Timeline';
 import { FloatingActionMenu } from '@/components/FloatingActionMenu';
 import { PostDetailModal } from '@/components/PostDetailModal';
@@ -15,6 +15,29 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLoading && posts.length > 0 && !hasScrolledRef.current) {
+      if (window.location.hash) {
+        const id = window.location.hash.substring(1);
+        const element = document.getElementById(id);
+        if (element) {
+          setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.style.transition = 'all 1s ease-in-out';
+            element.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.5)';
+            element.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+              element.style.boxShadow = 'none';
+              element.style.transform = 'none';
+            }, 2000);
+          }, 100);
+        }
+      }
+      hasScrolledRef.current = true;
+    }
+  }, [posts, isLoading]);
 
   useEffect(() => {
     const fetchPosts = async () => {
