@@ -1,7 +1,5 @@
-'use client';
-
 import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -19,7 +17,9 @@ export type Post = {
 
 export function PostCard({ post }: { post: Post }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
+  const date = new Date(post.createdAt);
+  const timeStr = format(date, 'HH:mm');
+  const dateStr = format(date, 'MMM dd, yyyy');
 
   const getPlatformLogo = () => {
     let domain = 'example.com';
@@ -59,97 +59,115 @@ export function PostCard({ post }: { post: Post }) {
   else if (mediaCount >= 3) gridClass = "grid-cols-2 md:grid-cols-3";
 
   return (
-    <motion.article 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="p-5 md:p-7 rounded-[2.5rem] bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/50 shadow-xl shadow-indigo-500/5 dark:shadow-none hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300"
-    >
-      
-      {/* Dynamic Title (First Sentence) */}
-      {title && (
-        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-4 leading-snug">
-          {title}
-        </h2>
-      )}
-
-      {/* Truncated Body Content */}
-      {body && (
-        <div className="relative mb-5 group">
-           <div 
-              className={`text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-[15px] transition-all duration-300 ${isExpanded ? '' : 'line-clamp-4'}`}
-           >
-             {body}
-           </div>
-           
-           {!isExpanded && body.length > 150 && (
-               <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-white/90 dark:from-[#0d1629]/90 to-transparent pointer-events-none" />
-           )}
-
-           {body.length > 150 && (
-             <button 
-               onClick={() => setIsExpanded(!isExpanded)}
-               className="mt-2 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:underline flex items-center gap-1.5 transition-colors"
-             >
-               {isExpanded ? (
-                 <>Collapse Selection <ChevronUp className="w-3.5 h-3.5" /></>
-               ) : (
-                 <>Read Full Text <ChevronDown className="w-3.5 h-3.5" /></>
-               )}
-             </button>
-           )}
-        </div>
-      )}
-
-      {/* Responsive Media Grid */}
-      {mediaCount > 0 && (
-        <div className={`mt-4 mb-6 grid ${gridClass} gap-2.5 rounded-[1.5rem] overflow-hidden`}>
-          {post.mediaUrls.map((url, i) => (
-             <div key={i} className={`rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950/50 border border-slate-100/50 dark:border-slate-800/50 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
-                <img 
-                  src={url.replace(/^http:\/\//i, 'https://')} 
-                  referrerPolicy="no-referrer"
-                  alt={`Media ${i}`} 
-                  loading="lazy"
-                  className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in`} 
-                />
-             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Suppressed Metadata Footer */}
-      <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center opacity-75 hover:opacity-100 transition-opacity duration-300">
-        <div className="flex items-center space-x-3 w-full">
-          <Avatar className="w-8 h-8 md:w-9 md:h-9 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm">
-            <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
-            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-[10px] font-bold">
-              {post.authorName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-0.5">
-              <span className="font-medium text-[13px] md:text-sm text-slate-800 dark:text-slate-200 truncate">{post.authorName}</span>
-            </div>
-            <div className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
-              <span>{timeAgo}</span>
-              <span>•</span>
-              <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors flex items-center gap-1">
-                View Original
-              </a>
-            </div>
-          </div>
-          
-          {/* Minimalist Visual Platform Logo */}
-          <div className="shrink-0 ml-auto flex items-center justify-center">
-             <img 
-               src={getPlatformLogo()} 
-               alt={post.platform} 
-               className="w-5 h-5 md:w-6 md:h-6 rounded-sm object-contain opacity-80" 
-             />
-          </div>
-        </div>
+    <div className="flex group relative">
+      {/* Left Column: Detailed Timestamp (Hidden on mobile, stays compact) */}
+      <div className="hidden md:flex flex-col items-end w-20 pt-6 pr-6 opacity-60 group-hover:opacity-100 transition-opacity">
+        <span className="text-sm font-bold text-slate-900 dark:text-white leading-none">{timeStr}</span>
+        <span className="text-[10px] text-slate-500 uppercase tracking-tighter mt-1">{dateStr}</span>
       </div>
 
-    </motion.article>
+      {/* Center Column: The Rail Node */}
+      <div className="relative flex flex-col items-center w-10 md:w-16 pt-7">
+        <div className="z-10 w-4 h-4 rounded-full border-4 border-slate-50 dark:border-slate-950 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] group-hover:scale-125 transition-transform" />
+      </div>
+
+      {/* Right Column: The Card Content */}
+      <div className="flex-1 pb-4">
+        <motion.article 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="p-5 md:p-7 rounded-[2rem] bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800/50 shadow-lg shadow-indigo-500/5 dark:shadow-none hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300"
+        >
+          {/* Mobile Date Header */}
+          <div className="flex md:hidden items-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-3">
+             {dateStr} • {timeStr}
+          </div>
+
+          {/* Dynamic Title (First Sentence) */}
+          {title && (
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-4 leading-snug">
+              {title}
+            </h2>
+          )}
+
+          {/* Truncated Body Content */}
+          {body && (
+            <div className="relative mb-5 group">
+               <div 
+                  className={`text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-[15px] transition-all duration-300 ${isExpanded ? '' : 'line-clamp-4'}`}
+               >
+                 {body}
+               </div>
+               
+               {!isExpanded && body.length > 150 && (
+                   <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-t from-white/90 dark:from-[#0d1629]/90 to-transparent pointer-events-none" />
+               )}
+
+               {body.length > 150 && (
+                 <button 
+                   onClick={() => setIsExpanded(!isExpanded)}
+                   className="mt-2 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:underline flex items-center gap-1.5 transition-colors"
+                 >
+                   {isExpanded ? (
+                     <>Collapse Selection <ChevronUp className="w-3.5 h-3.5" /></>
+                   ) : (
+                     <>Read Full Text <ChevronDown className="w-3.5 h-3.5" /></>
+                   )}
+                 </button>
+               )}
+            </div>
+          )}
+
+          {/* Responsive Media Grid */}
+          {mediaCount > 0 && (
+            <div className={`mt-4 mb-6 grid ${gridClass} gap-2.5 rounded-[1.5rem] overflow-hidden`}>
+              {post.mediaUrls.map((url, i) => (
+                 <div key={i} className={`rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950/50 border border-slate-100/50 dark:border-slate-800/50 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
+                    <img 
+                      src={url.replace(/^http:\/\//i, 'https://')} 
+                      referrerPolicy="no-referrer"
+                      alt={`Media ${i}`} 
+                      loading="lazy"
+                      className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in`} 
+                    />
+                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* Suppressed Metadata Footer */}
+          <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center opacity-75 hover:opacity-100 transition-opacity duration-300">
+            <div className="flex items-center space-x-3 w-full">
+              <Avatar className="w-8 h-8 md:w-9 md:h-9 border border-slate-200 dark:border-slate-800 rounded-full shadow-sm">
+                <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-[10px] font-bold">
+                  {post.authorName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col flex-1 min-w-0">
+                <div className="flex items-center space-x-2 mb-0.5">
+                  <span className="font-medium text-[13px] md:text-sm text-slate-800 dark:text-slate-200 truncate">{post.authorName}</span>
+                </div>
+                <div className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
+                  <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 dark:hover:text-indigo-400 hover:underline transition-colors flex items-center gap-1">
+                    View Original
+                  </a>
+                </div>
+              </div>
+              
+              {/* Minimalist Visual Platform Logo */}
+              <div className="shrink-0 ml-auto flex items-center justify-center">
+                 <img 
+                   src={getPlatformLogo()} 
+                   alt={post.platform} 
+                   className="w-5 h-5 md:w-6 md:h-6 rounded-sm object-contain opacity-80" 
+                 />
+              </div>
+            </div>
+          </div>
+
+        </motion.article>
+      </div>
+    </div>
   );
 }

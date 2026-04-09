@@ -33,7 +33,7 @@ export default function Home() {
       const data = await res.json();
       
       if (data.success) {
-        setPosts(prev => [data.data, ...prev]);
+        setPosts(prev => [...prev, data.data]);
         toast.success('Successfully added to your timeline');
         return true; // Return success for modal closing
       } else {

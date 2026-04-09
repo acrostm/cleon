@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 export async function GET() {
     try {
         const posts = await prisma.post.findMany({
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'asc' }
         });
         return NextResponse.json({ success: true, data: posts });
     } catch (error: any) {
