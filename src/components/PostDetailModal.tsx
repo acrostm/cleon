@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
+import { isVideoUrl } from '@/lib/utils';
 
 interface Props {
   post: Post | null;
@@ -89,16 +90,34 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
             {post.mediaUrls.length > 0 && (
               <div className="space-y-6">
-                {post.mediaUrls.map((url, i) => (
-                  <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
-                    <img
-                      src={url.replace(/^http:\/\//i, 'https://')}
-                      referrerPolicy="no-referrer"
-                      alt={`Media ${i}`}
-                      className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
-                    />
-                  </div>
-                ))}
+                {post.mediaUrls.map((url, i) => {
+                  const isVideo = isVideoUrl(url);
+                  const secureUrl = url.replace(/^http:\/\//i, 'https://');
+                  const commonClass = "w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700";
+
+                  return (
+                    <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
+                      {isVideo ? (
+                        <video
+                          src={secureUrl}
+                          controls
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          className={commonClass}
+                        />
+                      ) : (
+                        <img
+                          src={secureUrl}
+                          referrerPolicy="no-referrer"
+                          alt={`Media ${i}`}
+                          className={commonClass}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
