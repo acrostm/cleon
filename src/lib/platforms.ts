@@ -6,6 +6,8 @@ export function getPlatformLogo(platform: string, originalUrl: string) {
       case 'XIAOHONGSHU': 
           // Use a dedicated high-quality favicon for Xiaohongshu as Google's scraper often fails on it
           return `https://www.xiaohongshu.com/favicon.ico`;
+      case 'WECHAT':
+          return `https://www.google.com/s2/favicons?domain=mp.weixin.qq.com&sz=128`;
       case 'WEB': 
           let domain = 'example.com';
           try { domain = new URL(originalUrl).hostname; } catch(e) {}

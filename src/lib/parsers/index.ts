@@ -3,9 +3,10 @@ import { BilibiliParser } from './bilibili';
 import { WebParser } from './web';
 import { XiaohongshuParser } from './xiaohongshu';
 import { DouyinParser } from './douyin';
+import { WechatParser } from './wechat';
 
 export interface ParsedData {
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN';
+  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT';
   authorName: string;
   avatarUrl: string;
   title?: string;
@@ -23,6 +24,7 @@ const parsers: ContentParser[] = [
   new BilibiliParser(),
   new XiaohongshuParser(),
   new DouyinParser(),
+  new WechatParser(),
   new WebParser(), // Always last as fallback
 ];
 
