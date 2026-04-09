@@ -41,17 +41,17 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   return (
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden sm:rounded-[2.5rem] border-border/50 bg-card/95 backdrop-blur-2xl transition-all selection:bg-indigo-500/20 shadow-2xl">
+      <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all selection:bg-indigo-500/20 shadow-2xl">
         
         {/* Header Overlay */}
-        <DialogHeader className="p-6 border-b border-border/40 bg-card/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0 sticky top-0 z-10">
+        <DialogHeader className="p-5 md:p-6 border-b border-border/40 bg-card/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0 sticky top-0 z-10">
           <div className="flex items-center space-x-3 text-left">
             <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
               <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
               <AvatarFallback className="bg-indigo-500 text-white font-bold">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <DialogTitle className="text-base font-black tracking-tight text-foreground leading-none mb-1.5 uppercase">
+              <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none mb-1.5 uppercase">
                 {post.authorName}
               </DialogTitle>
               <Badge variant="secondary" className="text-[9px] h-4 px-1.5 leading-none uppercase tracking-widest font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-none w-fit">
@@ -63,9 +63,9 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
         {/* Scrollable Body */}
         <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(90vh-140px)]">
-           <div className="p-6 md:p-12 space-y-12 max-w-3xl mx-auto">
+           <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
               {/* Full Content Text */}
-              <div className="text-xl md:text-2xl leading-relaxed whitespace-pre-wrap font-medium text-foreground/90 tracking-tight">
+              <div className="text-[15px] md:text-base leading-relaxed md:leading-8 whitespace-pre-wrap font-medium text-foreground/90 tracking-normal">
                 {post.contentText}
               </div>
 
