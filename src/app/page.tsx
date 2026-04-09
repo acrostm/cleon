@@ -7,6 +7,8 @@ import { PostDetailModal } from '@/components/PostDetailModal';
 import { Post } from '@/components/PostCard';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Separator } from '@/components/ui/separator';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -73,21 +75,43 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:py-12">
-      <div className="max-w-2xl mx-auto flex flex-col min-h-[calc(100vh-6rem)]">
-        <Timeline 
-          posts={posts} 
-          isLoading={isLoading} 
-          isSubmitting={isSubmitting} 
-          onPostClick={(post) => setSelectedPost(post)}
-        />
+    <main className="min-h-screen bg-background text-foreground transition-colors duration-500 selection:bg-indigo-500/10 dark:selection:bg-indigo-500/30">
+      <div className="max-w-2xl mx-auto px-4 py-8 md:py-16 flex flex-col min-h-screen">
+        
+        {/* Site Header */}
+        <header className="flex items-center justify-between mb-12 md:mb-20">
+           <div className="flex flex-col">
+              <h1 className="text-3xl font-black tracking-tighter text-indigo-600 dark:text-indigo-400 hover:opacity-80 transition-opacity cursor-default">
+                CLEON
+              </h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground mt-1">
+                Aggregated Stream
+              </p>
+           </div>
+           <ThemeToggle />
+        </header>
+
+        <div className="flex-1">
+          <Timeline 
+            posts={posts} 
+            isLoading={isLoading} 
+            isSubmitting={isSubmitting} 
+            onPostClick={(post) => setSelectedPost(post)}
+          />
+        </div>
 
         {/* Branding Footer */}
         {!isLoading && posts.length > 0 && (
-          <footer className="mt-16 pt-12 border-t border-slate-200/60 dark:border-slate-800/60 text-center">
-            <h1 className="text-3xl font-extrabold tracking-tighter text-slate-300 dark:text-slate-800 transition-colors hover:text-indigo-500/20">
-              Cleon
-            </h1>
+          <footer className="mt-24 pb-12 text-center space-y-8">
+            <Separator className="opacity-50" />
+            <div className="flex flex-col items-center">
+               <h2 className="text-3xl font-black tracking-tighter text-muted-foreground/10 dark:text-muted-foreground/5 select-none touch-none">
+                 CLEON
+               </h2>
+               <p className="text-[10px] text-muted-foreground/40 font-bold uppercase tracking-widest mt-2">
+                 End of Feed
+               </p>
+            </div>
           </footer>
         )}
       </div>

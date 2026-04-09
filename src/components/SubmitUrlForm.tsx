@@ -27,9 +27,9 @@ export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
       onSubmit={handleSubmit} 
-      className="relative flex items-center w-full shadow-2xl shadow-indigo-500/10 rounded-full bg-white dark:bg-slate-900 overflow-hidden ring-1 ring-slate-200 dark:ring-slate-800 transition-all focus-within:ring-2 focus-within:ring-indigo-500"
+      className="relative flex items-center w-full shadow-2xl shadow-indigo-500/5 rounded-full bg-card/80 backdrop-blur-md overflow-hidden border border-border transition-all focus-within:border-indigo-500/50 focus-within:ring-4 focus-within:ring-indigo-500/10"
     >
-      <div className="pl-6 text-slate-400">
+      <div className="pl-6 text-muted-foreground/60">
         <LinkIcon className="w-5 h-5" />
       </div>
       <Input
@@ -37,7 +37,7 @@ export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="Drop a Twitter, Bilibili, or Web link here..."
-        className="border-0 bg-transparent shadow-none focus-visible:ring-0 text-[16px] md:text-lg h-16 w-full placeholder:text-slate-400"
+        className="border-0 bg-transparent shadow-none focus-visible:ring-0 text-[16px] md:text-lg h-16 w-full placeholder:text-muted-foreground/40 font-medium"
         disabled={isSubmitting}
         required
       />
@@ -46,7 +46,7 @@ export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
           type="submit" 
           size="icon" 
           disabled={!url || isSubmitting}
-          className="rounded-full w-12 h-12 bg-indigo-600 hover:bg-indigo-700 transition-colors dark:text-white"
+          className="rounded-full w-12 h-12 bg-indigo-600 hover:bg-indigo-700 transition-all dark:text-white shadow-lg active:scale-95"
         >
           {isSubmitting ? (
              <Loader2 className="w-5 h-5 animate-spin" />
