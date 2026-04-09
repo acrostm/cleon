@@ -33,7 +33,7 @@ export default function Home() {
       const data = await res.json();
       
       if (data.success) {
-        setPosts(prev => [...prev, data.data]);
+        setPosts(prev => [data.data, ...prev]);
         toast.success('Successfully added to your timeline');
         return true; // Return success for modal closing
       } else {
@@ -52,18 +52,21 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:py-12">
-      <div className="max-w-2xl mx-auto space-y-12">
-        <header className="text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
-            Cleon Timeline
-          </h1>
-        </header>
-
+      <div className="max-w-2xl mx-auto flex flex-col min-h-[calc(100vh-6rem)]">
         <Timeline 
           posts={posts} 
           isLoading={isLoading} 
           isSubmitting={isSubmitting} 
         />
+
+        {/* Branding Footer */}
+        {!isLoading && posts.length > 0 && (
+          <footer className="mt-16 pt-12 border-t border-slate-200/60 dark:border-slate-800/60 text-center">
+            <h1 className="text-3xl font-extrabold tracking-tighter text-slate-300 dark:text-slate-800 transition-colors hover:text-indigo-500/20">
+              Cleon
+            </h1>
+          </footer>
+        )}
       </div>
 
       <FloatingActionMenu 
