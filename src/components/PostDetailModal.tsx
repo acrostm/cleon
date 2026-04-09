@@ -28,25 +28,8 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
   if (!post) return null;
 
   // Determine Title and Content
-  let title = post.title || '';
-  let body = post.contentText || '';
-
-  if (!post.title) {
-    const textSegments = post.contentText.trim().split(/\n+/);
-    if (textSegments.length > 1) {
-        title = textSegments[0];
-        body = textSegments.slice(1).join('\n');
-    } else {
-        const sentences = post.contentText.split(/(?<=[。！？.!?])/);
-        if (sentences.length > 1 && sentences[0].length < 100) {
-            title = sentences[0];
-            body = sentences.slice(1).join('').trim();
-        } else {
-            title = post.contentText;
-            body = '';
-        }
-    }
-  }
+  const title = post.title || '';
+  const body = post.contentText || '';
 
   const handleDelete = async () => {
     if (!confirmDelete) {
