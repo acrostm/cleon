@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
-import { extractUrl } from '@/lib/utils/url';
+import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
+
+// In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
+// This works per-instance; combined with 'after()', it virtually eliminates duplicate processing.
+const processedMessageIds = new Set<string>();
 
 // Helper to fetch Feishu tenant access token
 async function getTenantAccessToken() {
@@ -96,49 +100,87 @@ export async function POST(req: Request) {
           // Feishu message content is often a stringified JSON
           const contentObj = JSON.parse(message.content);
           textContent = contentObj.text;
-        } catch (e) {
+        } catch {
           console.error('Failed to parse message content:', message.content);
         }
 
         if (textContent) {
           // Extract the first valid URL from the message text
           const rawUrl = extractUrl(textContent);
-          
+
           if (!rawUrl) {
-            // Optional: You could notify the user that no URL was found
-            // await replyToMessage(message.message_id, "No valid URL found in the message.");
             return NextResponse.json({ success: true });
           }
 
-          try {
-            // Get appropriate parser and parse the content (e.g., Twitter, Bilibili)
-            const parser = getParserForUrl(rawUrl);
-            const parsedData = await parser.parse(rawUrl);
-
-            // Save the extracted post data to the database
-            await prisma.post.create({
-              data: {
-                originalUrl: rawUrl,
-                platform: parsedData.platform,
-                authorName: parsedData.authorName,
-                avatarUrl: parsedData.avatarUrl,
-                title: parsedData.title,
-                contentText: parsedData.contentText,
-                mediaUrls: parsedData.mediaUrls || [],
-              }
-            });
-
-            // Reply back to the user upon success
-            await replyToMessage(message.message_id, "Saved to timeline!");
-          } catch (parseError: unknown) {
-            console.error('Error parsing/saving URL from Feishu bot:', parseError);
-            const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-            await replyToMessage(message.message_id, `Failed to save: ${errorMessage}`);
+          if (!validateUrl(rawUrl)) {
+            console.warn('Blocked potentially unsafe or invalid URL:', rawUrl);
+            await replyToMessage(message.message_id, "⚠️ Rejected: The provided URL is invalid or unsafe.");
+            return NextResponse.json({ success: true });
           }
+
+          // If we've already seen this message ID, it's a Feishu retry
+          if (processedMessageIds.has(message.message_id)) {
+            console.log('Skipping already processed message_id:', message.message_id);
+            return NextResponse.json({ success: true });
+          }
+
+          processedMessageIds.add(message.message_id);
+          // Keep the cache from growing indefinitely
+          if (processedMessageIds.size > 1000) {
+            const iterator = processedMessageIds.values();
+            for (let i = 0; i < 500; i++) {
+              processedMessageIds.delete(iterator.next().value!);
+            }
+          }
+
+          // Process the URL in the background using `after`. 
+          // This allows the webhook to immediately return 200 OK to Feishu,
+          // preventing the 3-second timeout and stopping further retries.
+          after(async () => {
+            try {
+              // 1. Get appropriate parser and parse the content (e.g., Twitter, Bilibili)
+              const parser = getParserForUrl(rawUrl);
+              const parsedData = await parser.parse(rawUrl);
+
+              // 2. Secondary DB check to prevent duplicates across different serverless instances
+              // If a post with the same original URL was added recently (within 5 minutes), skip it.
+              const recentDuplicate = await prisma.post.findFirst({
+                where: {
+                  originalUrl: rawUrl,
+                  createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }
+                }
+              });
+
+              if (recentDuplicate) {
+                console.log('Skipping database save, recent duplicate found for URL:', rawUrl);
+                return;
+              }
+
+              // 3. Save the extracted post data to the database
+              await prisma.post.create({
+                data: {
+                  originalUrl: rawUrl,
+                  platform: parsedData.platform,
+                  authorName: parsedData.authorName,
+                  avatarUrl: parsedData.avatarUrl,
+                  title: parsedData.title,
+                  contentText: parsedData.contentText,
+                  mediaUrls: parsedData.mediaUrls || [],
+                }
+              });
+
+              // 4. Reply back to the user upon success
+              await replyToMessage(message.message_id, "Saved to timeline!");
+            } catch (parseError: unknown) {
+              console.error('Error parsing/saving URL from Feishu bot:', parseError);
+              const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+              await replyToMessage(message.message_id, `Failed to save: ${errorMessage}`);
+            }
+          });
         }
       }
 
-      // Return 200 OK for successful event processing
+      // Return 200 OK immediately so Feishu doesn't retry
       return NextResponse.json({ success: true });
     }
 
