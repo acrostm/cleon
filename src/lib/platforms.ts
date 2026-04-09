@@ -2,6 +2,7 @@ export function getPlatformLogo(platform: string, originalUrl: string) {
   switch (platform) {
       case 'TWITTER': return `https://www.google.com/s2/favicons?domain=x.com&sz=128`;
       case 'BILIBILI': return `https://www.google.com/s2/favicons?domain=bilibili.com&sz=128`;
+      case 'DOUYIN': return `https://www.douyin.com/favicon.ico`;
       case 'XIAOHONGSHU': 
           // Use a dedicated high-quality favicon for Xiaohongshu as Google's scraper often fails on it
           return `https://www.xiaohongshu.com/favicon.ico`;
