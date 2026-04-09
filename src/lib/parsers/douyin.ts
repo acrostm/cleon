@@ -54,7 +54,7 @@ export class DouyinParser implements ContentParser {
       const html = await shareRes.text();
       
       // 4. Extract JSON from _ROUTER_DATA
-      const routerDataMatch = html.match(/window\._ROUTER_DATA\s*=\s*({[\s\S]*?});<\/script>/);
+      const routerDataMatch = html.match(/window\._ROUTER_DATA\s*=\s*({[\s\S]*?});?<\/script>/);
       let videoInfo: any = null;
       
       if (routerDataMatch) {
