@@ -101,11 +101,8 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                       {isEmbed ? (
                         <iframe
                           src={secureUrl}
-                          scrolling="no" 
-                          frameBorder="no" 
-                          framespacing="0" 
                           allowFullScreen={true}
-                          className={`${commonClass} aspect-video`}
+                          className={`${commonClass} aspect-video border-0`}
                         />
                       ) : isVideo ? (
                         <video
