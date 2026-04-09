@@ -90,3 +90,27 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ### 🎉 大功告成！
 现在你可以打开飞书，在搜索框搜索你刚才创建的机器人名称，跟它打个招呼，然后粘贴一个 URL 发送给它。如果配置正确，它会自动抓取网页信息、保存到数据库，并回复你 **"Saved to timeline!"**。
+
+---
+
+## 🛡️ 安全拦截器机制 (Security Interceptor)
+
+为了防止恶意请求、SSRF (服务端请求伪造) 或导致服务瘫痪的攻击，本项目内建了轻量而严格的 URL 安全拦截机制（位于 `src/lib/utils/url.ts` 的 `validateUrl`）。它不仅作用于前端页面的输入框，也同样作用于飞书机器人收集到的链接。
+
+拦截器主要包含以下功能点，防止以后维护时遗忘：
+
+1. **格式强校验 (Strict Formatting)**
+   利用系统原生的 `URL` 构造函数对字符串进行强制转换和检验，任何无法被正常解析为有效结构的脏文本或乱码都会被直接抛弃。
+2. **安全协议限制 (Protocol Allowlist)**
+   强制规定合法的链接必须以 `http:` 或 `https:` 协议开头，杜绝类似于 `javascript:` (XSS 风险)、`file:`、`data:` 或其他被构造的伪协议执行。
+3. **SSRF 漏洞防护 (SSRF Protection)**
+   防止攻击者利用你的服务器充当代理探测内网。拦截器会自动拦截指向本地环境或私有 IP 段的请求，包括：
+   - `localhost` 或 `.local` 结尾的本地域名
+   - `127.x.x.x` (Loopback 环回地址)
+   - `10.x.x.x`
+   - `172.16.x.x` - `172.31.x.x`
+   - `192.168.x.x`
+4. **超长载荷拦截 (Payload Length Limit)**
+   限制单个 URL 的最大长度为 `2048` 字符，防范通过发送超长恶意文本导致的缓冲区溢出 (Buffer Overflow) 或占用过多资源的 DDoS 攻击。
+
+> **提示**：如果飞书发出的链接触发了上述拦截规则，机器人将不会进行爬取，而是会主动回复一条提示：*"⚠️ Rejected: The provided URL is invalid or unsafe."*
