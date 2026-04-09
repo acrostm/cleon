@@ -73,17 +73,14 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                 )}
               </CardHeader>
 
-              <CardContent className="px-6 py-0 pb-12">
+              <CardContent className="px-6 py-0 pb-6">
                 {body && (
                   <FormattedText 
                     text={body}
-                    className="text-muted-foreground leading-relaxed text-[15px] group-hover/card:text-foreground/80 transition-colors duration-300 block"
+                    className="text-muted-foreground leading-relaxed text-[15px] group-hover/card:text-foreground/80 transition-colors duration-300 block line-clamp-6"
                   />
                 )}
               </CardContent>
-
-              {/* Enhanced Gradient Overlay for truncation */}
-              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-card via-card/60 to-transparent pointer-events-none" />
             </div>
 
             {/* Media Section (Variable Height) */}
