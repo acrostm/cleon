@@ -17,14 +17,31 @@ export default function Home() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   useEffect(() => {
-    fetch('/api/feed')
-      .then(res => res.json())
-      .then(data => {
+    const fetchPosts = async () => {
+      try {
+        const res = await fetch('/api/feed');
+        const data = await res.json();
         if (data.success) {
-          setPosts(data.data);
+          setPosts(prev => {
+            // Only update state if there's a structural change (new post or deleted post)
+            // to prevent unnecessary React re-renders every few seconds
+            const hasChanges = prev.length !== data.data.length || 
+              (prev.length > 0 && data.data.length > 0 && prev[0].id !== data.data[0].id);
+            return hasChanges ? data.data : prev;
+          });
         }
-      })
-      .finally(() => setIsLoading(false));
+      } catch (err) {
+        console.error('Failed to fetch posts:', err);
+      }
+    };
+
+    // Initial fetch
+    fetchPosts().finally(() => setIsLoading(false));
+
+    // Poll every 5 seconds to get updates from Feishu bot or other clients
+    const intervalId = setInterval(fetchPosts, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleSubmit = async (url: string) => {
