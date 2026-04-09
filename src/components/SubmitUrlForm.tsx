@@ -23,9 +23,9 @@ export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
 
   return (
     <motion.form 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       onSubmit={handleSubmit} 
       className="relative flex items-center w-full shadow-2xl shadow-indigo-500/5 rounded-full bg-card/40 backdrop-blur-xl overflow-hidden border border-border/50 transition-all duration-300 focus-within:border-indigo-500 focus-within:shadow-[0_0_25px_rgba(79,70,229,0.15)] group"
     >
