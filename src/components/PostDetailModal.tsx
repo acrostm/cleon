@@ -53,7 +53,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
         {/* Content area: header floats above scrollable content */}
         <div className="relative flex-1 min-h-0">
           {/* Fixed Glassmorphism Header — stays in place, content scrolls behind it */}
-          <DialogHeader className="absolute top-0 inset-x-0 z-30 p-5 md:p-6 border-b border-white/[0.06] bg-background/40 supports-[backdrop-filter]:bg-background/40 backdrop-blur-xl flex flex-row items-center justify-between space-y-0">
+          <DialogHeader className="absolute top-0 inset-x-0 z-30 p-5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center space-x-3 text-left">
               <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
                 <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
