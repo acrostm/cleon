@@ -51,7 +51,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
       <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
 
         {/* Content area: header floats above scrollable content */}
-        <div className="relative flex-1 min-h-0">
+        <div className="relative flex-1 min-h-0 overflow-hidden">
           {/* Fixed Glassmorphism Header — stays in place, content scrolls behind it */}
           <DialogHeader className="absolute top-0 inset-x-0 z-30 p-5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center space-x-3 text-left">
@@ -77,7 +77,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
           {/* Scrollable Content — starts below header, scrolls underneath it */}
           <ScrollArea className="h-full">
-            <div className="pt-[72px] p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
+            <div className="pt-[80px] px-6 pb-6 md:px-8 md:pb-8 space-y-8 max-w-2xl mx-auto">
               {/* Content Section */}
               <div className="space-y-4">
                 {title && (
