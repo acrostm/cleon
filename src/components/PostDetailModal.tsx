@@ -27,6 +27,24 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   if (!post) return null;
 
+  // Determine Title and Content
+  let title = '';
+  let body = '';
+  const textSegments = post.contentText.trim().split(/\n+/);
+  if (textSegments.length > 1) {
+      title = textSegments[0];
+      body = textSegments.slice(1).join('\n');
+  } else {
+      const sentences = post.contentText.split(/(?<=[。！？.!?])/);
+      if (sentences.length > 1 && sentences[0].length < 100) {
+          title = sentences[0];
+          body = sentences.slice(1).join('').trim();
+      } else {
+          title = post.contentText;
+          body = '';
+      }
+  }
+
   const handleDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -64,9 +82,18 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
         {/* Scrollable Body */}
         <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(90vh-140px)]">
            <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
-              {/* Full Content Text */}
-              <div className="text-[15px] md:text-base leading-relaxed md:leading-8 whitespace-pre-wrap font-medium text-foreground/90 tracking-normal">
-                {post.contentText}
+              {/* Content Section */}
+              <div className="space-y-4">
+                {title && (
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
+                    {title}
+                  </h2>
+                )}
+                {body && (
+                  <div className="text-[15px] md:text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground/80 tracking-normal">
+                    {body}
+                  </div>
+                )}
               </div>
 
               {/* Full Media Grid */}
