@@ -114,12 +114,12 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
           <Button
             variant="ghost"
             className="text-indigo-600 dark:text-indigo-400 font-bold tracking-tight hover:bg-indigo-500/10 transition-all group rounded-full px-6"
-            asChild
+            render={
+              <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
+            }
           >
-            <a href={post.originalUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-              SOURCE
-            </a>
+            <ExternalLink className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+            SOURCE
           </Button>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
