@@ -7,6 +7,7 @@ export interface ParsedData {
   platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU';
   authorName: string;
   avatarUrl: string;
+  title?: string;
   contentText: string;
   mediaUrls: string[];
 }

@@ -17,6 +17,7 @@ model Post {
   platform     String
   authorName   String
   avatarUrl    String
+  title        String?  @db.Text
   contentText  String
   mediaUrls    String[]
   createdAt    DateTime @default(now())

@@ -76,7 +76,8 @@ export class XiaohongshuParser implements ContentParser {
         platform: 'XIAOHONGSHU',
         authorName: authorName,
         avatarUrl: avatarUrl,
-        contentText: post.desc ? `${post.title ? post.title + '\n\n' : ''}${post.desc}` : post.title || '',
+        title: post.title || '',
+        contentText: post.desc || '',
         mediaUrls: images
       };
       

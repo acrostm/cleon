@@ -12,6 +12,7 @@ export type Post = {
   platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU';
   authorName: string;
   avatarUrl: string;
+  title?: string | null;
   contentText: string;
   mediaUrls: string[];
   createdAt: string;
@@ -39,22 +40,24 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
   };
 
   // Determine Title and Content
-  let title = '';
-  let body = '';
-  // ... (rest of title/body logic same)
-  const textSegments = post.contentText.trim().split(/\n+/);
-  if (textSegments.length > 1) {
-      title = textSegments[0];
-      body = textSegments.slice(1).join('\n');
-  } else {
-      const sentences = post.contentText.split(/(?<=[。！？.!?])/);
-      if (sentences.length > 1 && sentences[0].length < 100) {
-          title = sentences[0];
-          body = sentences.slice(1).join('').trim();
-      } else {
-          title = post.contentText;
-          body = '';
-      }
+  let title = post.title || '';
+  let body = post.contentText || '';
+
+  if (!post.title) {
+    const textSegments = post.contentText.trim().split(/\n+/);
+    if (textSegments.length > 1) {
+        title = textSegments[0];
+        body = textSegments.slice(1).join('\n');
+    } else {
+        const sentences = post.contentText.split(/(?<=[。！？.!?])/);
+        if (sentences.length > 1 && sentences[0].length < 100) {
+            title = sentences[0];
+            body = sentences.slice(1).join('').trim();
+        } else {
+            title = post.contentText;
+            body = '';
+        }
+    }
   }
 
   // Grid layout helper

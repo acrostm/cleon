@@ -29,7 +29,8 @@ export class WebParser implements ContentParser {
       platform: 'WEB',
       authorName: author,
       avatarUrl: '',
-      contentText: title + (description ? '\n\n' + description : ''),
+      title: title,
+      contentText: description,
       mediaUrls: image ? [image] : [],
     };
   }
