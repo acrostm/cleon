@@ -10,5 +10,8 @@ export function isVideoUrl(url: string) {
 }
 
 export function isEmbedUrl(url: string) {
-  return url.includes('player.bilibili.com') || url.includes('youtube.com/embed/') || url.includes('player.vimeo.com');
+  const lowerUrl = url.toLowerCase();
+  return lowerUrl.includes('player.bilibili.com') || 
+         lowerUrl.includes('youtube.com/embed/') || 
+         lowerUrl.includes('player.vimeo.com');
 }
