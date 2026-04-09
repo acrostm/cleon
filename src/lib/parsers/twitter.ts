@@ -25,7 +25,7 @@ export class TwitterParser implements ContentParser {
     // Handle Twitter Articles
     if (data.article) {
         title = data.article.title || '';
-        body = data.article.preview_text || '';
+        body = (data.article.preview_text || '') + '\n\n(View Full Article at Source)';
         if (data.article.image && !mediaUrls.includes(data.article.image)) {
             mediaUrls.unshift(data.article.image);
         }
