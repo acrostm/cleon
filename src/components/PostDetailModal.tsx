@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
-import { isVideoUrl } from '@/lib/utils';
+import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 
 interface Props {
   post: Post | null;
@@ -92,12 +92,20 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               <div className="space-y-6">
                 {post.mediaUrls.map((url, i) => {
                   const isVideo = isVideoUrl(url);
+                  const isEmbed = isEmbedUrl(url);
                   const secureUrl = url.replace(/^http:\/\//i, 'https://');
                   const commonClass = "w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700";
 
                   return (
                     <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
-                      {isVideo ? (
+                      {isEmbed ? (
+                        <iframe
+                          src={secureUrl}
+                          allowFullScreen={true}
+                          allow="autoplay; fullscreen"
+                          className="w-full aspect-video border-0 bg-black"
+                        />
+                      ) : isVideo ? (
                         <video
                           src={secureUrl}
                           controls

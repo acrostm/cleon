@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
 import { toast } from 'sonner';
-import { isVideoUrl } from '@/lib/utils';
+import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 
 export type Post = {
   id: string;
@@ -99,12 +99,20 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                 <div className={`grid ${gridClass} gap-3 rounded-2xl overflow-hidden border border-border/40`}>
                   {post.mediaUrls.map((url, i) => {
                      const isVideo = isVideoUrl(url);
+                     const isEmbed = isEmbedUrl(url);
                      const secureUrl = url.replace(/^http:\/\//i, 'https://');
                      const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
                      
                      return (
                      <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
-                        {isVideo ? (
+                        {isEmbed ? (
+                          <iframe
+                            src={secureUrl}
+                            allowFullScreen={true}
+                            allow="autoplay; fullscreen"
+                            className="w-full aspect-video border-0 bg-black"
+                          />
+                        ) : isVideo ? (
                           <video
                             src={secureUrl}
                             autoPlay
