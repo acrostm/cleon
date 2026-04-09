@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
-import { extractUrl } from '@/lib/utils/url';
+import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 
 // In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
@@ -180,42 +180,6 @@ export async function POST(req: Request) {
           });
         }
       }
-
-      // Return 200 OK IMMEDIATELY for successful event processing
-            // Optional: You could notify the user that no URL was found
-            // await replyToMessage(message.message_id, "No valid URL found in the message.");
-            return NextResponse.json({ success: true });
-          }
-
-          try {
-            // Get appropriate parser and parse the content (e.g., Twitter, Bilibili)
-            const parser = getParserForUrl(rawUrl);
-            const parsedData = await parser.parse(rawUrl);
-
-            // Save the extracted post data to the database
-            await prisma.post.create({
-              data: {
-                originalUrl: rawUrl,
-                platform: parsedData.platform,
-                authorName: parsedData.authorName,
-                avatarUrl: parsedData.avatarUrl,
-                title: parsedData.title,
-                contentText: parsedData.contentText,
-                mediaUrls: parsedData.mediaUrls || [],
-              }
-            });
-
-            // Reply back to the user upon success
-            await replyToMessage(message.message_id, "Saved to timeline!");
-          } catch (parseError: unknown) {
-            console.error('Error parsing/saving URL from Feishu bot:', parseError);
-            const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-            await replyToMessage(message.message_id, `Failed to save: ${errorMessage}`);
-          }
-        }
-      }
-
-      // Return 200 OK for successful event processing
       return NextResponse.json({ success: true });
     }
 
