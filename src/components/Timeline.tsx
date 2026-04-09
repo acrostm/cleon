@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { PostCard, Post } from './PostCard';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -10,6 +11,28 @@ interface Props {
 }
 
 export function Timeline({ posts, isLoading, isSubmitting }: Props) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const isFirstLoad = useRef(true);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (isLoading || posts.length === 0) return;
+
+    // We use a small delay to ensure the DOM has actually rendered the new cards
+    const timeoutId = setTimeout(() => {
+      if (isFirstLoad.current) {
+        // Instant jump for initial load to avoid flicker
+        bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+        isFirstLoad.current = false;
+      } else {
+        // Smooth scroll for subsequent updates (like adding a new URL)
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [posts.length, isLoading]);
+
   return (
     <div className="relative space-y-12 pb-20">
       {/* The Vertical Rail Line */}
@@ -38,6 +61,9 @@ export function Timeline({ posts, isLoading, isSubmitting }: Props) {
         ) : (
           posts.map(post => <PostCard key={post.id} post={post} />)
         )}
+        
+        {/* Invisible Anchor for Scroll Target */}
+        <div ref={bottomRef} className="h-1" />
       </div>
     </div>
   );
