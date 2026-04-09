@@ -88,7 +88,7 @@ export function FloatingActionMenu({ onSubmit, isSubmitting }: Props) {
             >
               <Button
                 size="icon"
-                className="w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-all pointer-events-none"
+                className="w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-all"
               >
                 <Plus className="w-7 h-7" />
               </Button>

@@ -81,7 +81,7 @@ export default function Home() {
         {/* Site Header */}
         <header className="flex items-center justify-between mb-12 md:mb-20">
            <div className="flex flex-col">
-              <h1 className="text-3xl font-black tracking-tighter text-indigo-600 dark:text-indigo-400 hover:opacity-80 transition-opacity cursor-default">
+              <h1 className="text-3xl font-black tracking-tighter text-indigo-600 dark:text-indigo-400 hover:opacity-80 transition-opacity cursor-default uppercase">
                 CLEON
               </h1>
               <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground mt-1">
@@ -105,7 +105,7 @@ export default function Home() {
           <footer className="mt-24 pb-12 text-center space-y-8">
             <Separator className="opacity-50" />
             <div className="flex flex-col items-center">
-               <h2 className="text-3xl font-black tracking-tighter text-muted-foreground/10 dark:text-muted-foreground/5 select-none touch-none">
+               <h2 className="text-4xl font-black tracking-tighter text-muted-foreground/10 dark:text-muted-foreground/5 select-none touch-none uppercase">
                  CLEON
                </h2>
                <p className="text-[10px] text-muted-foreground/40 font-bold uppercase tracking-widest mt-2">

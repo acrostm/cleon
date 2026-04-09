@@ -36,6 +36,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
   const handleDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
+      // Auto-reset confirmation after 3 seconds
       setTimeout(() => setConfirmDelete(false), 3000);
       return;
     }
@@ -113,12 +114,12 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
           <Button
             variant="ghost"
             className="text-indigo-600 dark:text-indigo-400 font-bold tracking-tight hover:bg-indigo-500/10 transition-all group rounded-full px-6"
-            render={
-              <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
-            }
+            asChild
           >
-            <ExternalLink className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-            SOURCE
+            <a href={post.originalUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+              SOURCE
+            </a>
           </Button>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
