@@ -109,7 +109,8 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                           <iframe
                             src={secureUrl}
                             allowFullScreen={true}
-                            className={`${commonClass} aspect-video border-0`}
+                            allow="autoplay; fullscreen"
+                            className="w-full aspect-video border-0 bg-black"
                           />
                         ) : isVideo ? (
                           <video

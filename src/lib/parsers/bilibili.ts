@@ -53,8 +53,8 @@ export class BilibiliParser implements ContentParser {
     const data = json.data;
     const cid = data.cid || '';
     
-    // Construct player URL
-    const playerUrl = `https://player.bilibili.com/player.html?bvid=${bvid}&cid=${cid}&page=1&high_quality=1&danmaku=0&autoplay=0`;
+    // Construct player URL with as_wide=1 for a better cinematic look
+    const playerUrl = `https://player.bilibili.com/player.html?bvid=${bvid}&cid=${cid}&page=1&high_quality=1&danmaku=0&autoplay=0&as_wide=1`;
     
     return {
       platform: 'BILIBILI',
@@ -62,7 +62,7 @@ export class BilibiliParser implements ContentParser {
       avatarUrl: data.owner?.face || '',
       title: data.title || '',
       contentText: data.desc || '',
-      mediaUrls: [playerUrl, data.pic].filter(Boolean) as string[],
+      mediaUrls: [playerUrl],
     };
   }
 }
