@@ -36,9 +36,11 @@ export function Timeline() {
         setPosts(prev => [data.data, ...prev]);
         toast.success('Successfully added to your timeline');
       } else {
+        console.error('[API Error]:', data.error, data.details || '');
         toast.error(data.error || 'Failed to parse URL');
       }
-    } catch {
+    } catch (err) {
+      console.error('[Network Catch Error]:', err);
       toast.error('Network error');
     } finally {
       setIsSubmitting(false);
