@@ -37,18 +37,10 @@ export function validateUrl(urlString: string): boolean {
     const hostname = url.hostname;
 
     // Strip trailing dots (e.g. "localhost." normalises to "localhost")
-    const normalizedHostname = hostname.replace(/\.+$/, '');
+    // Strip IPv6 brackets added by the URL API (e.g. "[::1]" → "::1")
+    const normalizedHostname = hostname.replace(/\.+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
 
-    // IPv6 loopback / link-local / ULA
-    if (
-      normalizedHostname === '::1' ||
-      normalizedHostname.toLowerCase().startsWith('fe80:') ||
-      normalizedHostname.toLowerCase().startsWith('fc') ||
-      normalizedHostname.toLowerCase().startsWith('fd')
-    ) {
-      return false;
-    }
-
+    // IPv4 private / reserved ranges
     if (
       normalizedHostname === 'localhost' ||
       normalizedHostname === '0.0.0.0' ||
@@ -61,12 +53,22 @@ export function validateUrl(urlString: string): boolean {
       return false;
     }
 
-    // Check for 172.16.x.x - 172.31.x.x
+    // 172.16.0.0/12 (172.16.x.x – 172.31.x.x)
     if (normalizedHostname.startsWith('172.')) {
       const secondOctet = parseInt(normalizedHostname.split('.')[1], 10);
       if (secondOctet >= 16 && secondOctet <= 31) {
         return false;
       }
+    }
+
+    // IPv6 loopback (::1), link-local (fe80::/10), and ULA (fc00::/7 covers fc and fd prefixes)
+    if (
+      normalizedHostname === '::1' ||
+      normalizedHostname.startsWith('fe80:') ||
+      normalizedHostname.startsWith('fc') ||
+      normalizedHostname.startsWith('fd')
+    ) {
+      return false;
     }
     
     // 3. Prevent extremely long URLs (DDoS/Buffer overflow protection)

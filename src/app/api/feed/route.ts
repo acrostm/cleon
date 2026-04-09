@@ -12,7 +12,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    const url = extractUrl(rawUrl) || rawUrl.trim(); // fallback to trimmed raw string if regex fails
+    const trimmedRawUrl = rawUrl.trim();
+    const url = extractUrl(trimmedRawUrl) || trimmedRawUrl; // fallback to trimmed raw string if regex fails
 
     if (!validateUrl(url)) {
       return NextResponse.json({ error: 'Invalid or unsafe URL provided' }, { status: 400 });
