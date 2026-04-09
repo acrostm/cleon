@@ -102,7 +102,8 @@ export function PostCard({ post }: { post: Post }) {
           {post.mediaUrls.map((url, i) => (
              <div key={i} className={`rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950/50 border border-slate-100/50 dark:border-slate-800/50 ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
                 <img 
-                  src={url} 
+                  src={url.replace(/^http:\/\//i, 'https://')} 
+                  referrerPolicy="no-referrer"
                   alt={`Media ${i}`} 
                   loading="lazy"
                   className={`w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in`} 
