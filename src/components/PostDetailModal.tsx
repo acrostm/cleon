@@ -105,6 +105,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                           muted
                           loop
                           playsInline
+                          referrerPolicy="no-referrer"
                           className={commonClass}
                         />
                       ) : (

@@ -111,6 +111,7 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
                             muted
                             loop
                             playsInline
+                            referrerPolicy="no-referrer"
                             className={commonClass}
                           />
                         ) : (
