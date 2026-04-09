@@ -89,42 +89,24 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                   text={body}
                   className="text-[15px] md:text-base leading-relaxed font-medium text-foreground/80 tracking-normal block"
                 />
-              </div>
-            </DialogHeader>
-
-            {/* Content Body */}
-            <div className="p-6 md:p-8 pt-6 md:pt-8 space-y-10 max-w-2xl mx-auto">
-              {/* Content Section */}
-              <div className="space-y-6">
-                {title && (
-                  <h2 className="text-xl md:text-3xl font-black tracking-tight leading-tight text-foreground selection:bg-indigo-500/30">
-                    <FormattedText text={title} />
-                  </h2>
-                )}
-                {body && (
-                  <FormattedText 
-                    text={body}
-                    className="text-[16px] md:text-lg leading-relaxed font-medium text-foreground/80 tracking-normal block"
-                  />
-                )}
-              </div>
-
-              {/* Full Media Grid */}
-              {post.mediaUrls.length > 0 && (
-                <div className="space-y-6">
-                  {post.mediaUrls.map((url, i) => (
-                    <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group shadow-lg">
-                      <img
-                        src={url.replace(/^http:\/\//i, 'https://')}
-                        referrerPolicy="no-referrer"
-                        alt={`Media ${i}`}
-                        className="w-full h-auto object-contain max-h-[85vh] group-hover:scale-[1.01] transition-transform duration-700"
-                      />
-                    </div>
-                  ))}
-                </div>
               )}
             </div>
+
+            {/* Full Media Grid */}
+            {post.mediaUrls.length > 0 && (
+              <div className="space-y-6">
+                {post.mediaUrls.map((url, i) => (
+                  <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
+                    <img
+                      src={url.replace(/^http:\/\//i, 'https://')}
+                      referrerPolicy="no-referrer"
+                      alt={`Media ${i}`}
+                      className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </ScrollArea>
 
