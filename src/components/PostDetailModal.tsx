@@ -12,8 +12,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
 
@@ -29,14 +27,12 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   if (!post) return null;
 
-  // Determine Title and Content
   const title = post.title || '';
   const body = post.contentText || '';
 
   const handleDelete = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
-      // Auto-reset confirmation after 3 seconds
       setTimeout(() => setConfirmDelete(false), 3000);
       return;
     }
@@ -50,10 +46,15 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
 
-        {/* Content area: header floats above scrollable content */}
-        <div className="relative flex-1 min-h-0 overflow-hidden">
-          {/* Fixed Glassmorphism Header — stays in place, content scrolls behind it */}
-          <DialogHeader className="absolute top-0 inset-x-0 z-30 p-5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-row items-center justify-between space-y-0">
+        {/* 
+          Layout: relative wrapper holds the glassmorphism header overlay + scrollable content.
+          The header is absolute so it floats on top.
+          The scrollable div is a normal flow child with h-full so it gets concrete height from flex-1.
+          Content has top-padding to clear the header initially; as user scrolls, text passes behind the glass.
+        */}
+        <div className="relative flex-1 min-h-0">
+          {/* Glassmorphism Header — absolute overlay, never moves */}
+          <DialogHeader className="absolute top-0 left-0 right-0 z-30 p-5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center space-x-3 text-left">
               <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
                 <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
@@ -65,20 +66,19 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                 </DialogTitle>
               </div>
             </div>
-
             <div className="flex items-center gap-3">
               <img 
                 src={getPlatformLogo(post.platform, post.originalUrl)} 
                 alt={post.platform} 
-                className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
+                className="w-5 h-5 md:w-6 md:h-6 rounded-[4px]" 
               />
             </div>
           </DialogHeader>
 
-          {/* Scrollable Content — native scroll, fills entire container */}
-          <div className="absolute inset-0 overflow-y-auto">
-            <div className="pt-[80px] px-6 pb-6 md:px-8 md:pb-8 space-y-8 max-w-2xl mx-auto">
-              {/* Content Section */}
+          {/* Scrollable content — normal flow child, gets height from flex-1 parent */}
+          <div className="h-full overflow-y-auto overscroll-contain">
+            <div className="pt-20 px-6 pb-8 md:px-8 md:pb-10 space-y-8 max-w-2xl mx-auto">
+              {/* Title & Body */}
               <div className="space-y-4">
                 {title && (
                   <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
@@ -93,7 +93,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                 )}
               </div>
 
-              {/* Full Media Grid */}
+              {/* Media */}
               {post.mediaUrls.length > 0 && (
                 <div className="space-y-6">
                   {post.mediaUrls.map((url, i) => (
@@ -112,8 +112,8 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <DialogFooter className="p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
+        {/* Footer — always visible at bottom */}
+        <DialogFooter className="shrink-0 p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
           <Button
             variant="ghost"
             className="text-indigo-600 dark:text-indigo-400 font-bold tracking-tight hover:bg-indigo-500/10 transition-all group rounded-full px-6"
