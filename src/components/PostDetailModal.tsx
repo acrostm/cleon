@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { getPlatformLogo } from '@/lib/platforms';
 
 interface Props {
   post: Post | null;
@@ -46,7 +47,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
   return (
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
-        
+
         {/* Header Overlay */}
         <DialogHeader className="p-5 md:p-6 border-b border-border/40 bg-card/50 backdrop-blur-md flex flex-row items-center justify-between space-y-0 relative z-10">
           <div className="flex items-center space-x-3 text-left">
@@ -63,41 +64,49 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               </Badge>
             </div>
           </div>
+
+          <div className="flex items-center gap-3">
+            <img 
+              src={getPlatformLogo(post.platform, post.originalUrl)} 
+              alt={post.platform} 
+              className="w-5 h-5 md:w-6 md:h-6 grayscale opacity-30 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 rounded-lg" 
+            />
+          </div>
         </DialogHeader>
 
         {/* Scrollable Body */}
         <ScrollArea className="flex-1 overflow-y-auto max-h-[calc(90vh-140px)]">
-           <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
-              {/* Content Section */}
-              <div className="space-y-4">
-                {title && (
-                  <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
-                    {title}
-                  </h2>
-                )}
-                {body && (
-                  <div className="text-[15px] md:text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground/80 tracking-normal">
-                    {body}
-                  </div>
-                )}
-              </div>
-
-              {/* Full Media Grid */}
-              {post.mediaUrls.length > 0 && (
-                <div className="space-y-6">
-                  {post.mediaUrls.map((url, i) => (
-                    <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
-                      <img 
-                        src={url.replace(/^http:\/\//i, 'https://')} 
-                        referrerPolicy="no-referrer"
-                        alt={`Media ${i}`} 
-                        className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
-                      />
-                    </div>
-                  ))}
+          <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto">
+            {/* Content Section */}
+            <div className="space-y-4">
+              {title && (
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
+                  {title}
+                </h2>
+              )}
+              {body && (
+                <div className="text-[15px] md:text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground/80 tracking-normal">
+                  {body}
                 </div>
               )}
-           </div>
+            </div>
+
+            {/* Full Media Grid */}
+            {post.mediaUrls.length > 0 && (
+              <div className="space-y-6">
+                {post.mediaUrls.map((url, i) => (
+                  <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
+                    <img
+                      src={url.replace(/^http:\/\//i, 'https://')}
+                      referrerPolicy="no-referrer"
+                      alt={`Media ${i}`}
+                      className="w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
         {/* Footer Actions */}
@@ -110,7 +119,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
             }
           >
             <ExternalLink className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-            VIEW ORIGINAL SOURCE
+            SOURCE
           </Button>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -118,14 +127,13 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               variant={confirmDelete ? "destructive" : "outline"}
               disabled={isDeleting}
               onClick={handleDelete}
-              className={`flex-1 sm:flex-none rounded-full px-8 h-12 border-border/50 transition-all duration-300 font-bold tracking-tighter ${
-                confirmDelete ? 'scale-105 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40'
-              }`}
+              className={`flex-1 sm:flex-none rounded-full px-8 h-12 border-border/50 transition-all duration-300 font-bold tracking-tighter ${confirmDelete ? 'scale-105 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40'
+                }`}
             >
               {isDeleting ? (
-                 <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                 <Trash2 className="w-5 h-5 mr-2" />
+                <Trash2 className="w-5 h-5 mr-2" />
               )}
               {isDeleting ? "PROCESSING..." : confirmDelete ? "REALLY DELETE?" : "DELETE POST"}
             </Button>

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { getPlatformLogo } from '@/lib/platforms';
 
 export type Post = {
   id: string;
@@ -24,20 +25,6 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
   const timeStr = format(date, 'HH:mm');
   const dateStr = format(date, 'MMM dd, yyyy');
 
-  const getPlatformLogo = () => {
-    switch (post.platform) {
-        case 'TWITTER': return `https://www.google.com/s2/favicons?domain=x.com&sz=128`;
-        case 'BILIBILI': return `https://www.google.com/s2/favicons?domain=bilibili.com&sz=128`;
-        case 'XIAOHONGSHU': 
-            // Use a dedicated high-quality favicon for Xiaohongshu as Google's scraper often fails on it
-            return `https://www.xiaohongshu.com/favicon.ico`;
-        case 'WEB': 
-            let domain = 'example.com';
-            try { domain = new URL(post.originalUrl).hostname; } catch(e) {}
-            return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-    }
-    return `https://www.google.com/s2/favicons?domain=example.com&sz=128`;
-  };
 
   // Determine Title and Content
   const title = post.title || '';
@@ -148,9 +135,9 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
               
               <div className="flex items-center gap-4">
                  <img 
-                   src={getPlatformLogo()} 
+                   src={getPlatformLogo(post.platform, post.originalUrl)} 
                    alt={post.platform} 
-                   className="w-5 h-5 md:w-6 md:h-6 grayscale opacity-30 group-hover/card:grayscale-0 group-hover/card:opacity-100 transition-all duration-500" 
+                   className="w-5 h-5 md:w-6 md:h-6 grayscale opacity-30 group-hover/card:grayscale-0 group-hover/card:opacity-100 transition-all duration-500 rounded-lg" 
                  />
               </div>
             </CardFooter>
