@@ -1,6 +1,4 @@
-'use client';
-
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { Skeleton } from './ui/skeleton';
 
 interface InfiniteScrollProps {
@@ -9,7 +7,7 @@ interface InfiniteScrollProps {
   isLoadingMore: boolean;
 }
 
-export function InfiniteScroll({ onLoadMore, hasMore, isLoadingMore }: InfiniteScrollProps) {
+export const InfiniteScroll = memo(function InfiniteScroll({ onLoadMore, hasMore, isLoadingMore }: InfiniteScrollProps) {
   const observerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,4 +61,4 @@ export function InfiniteScroll({ onLoadMore, hasMore, isLoadingMore }: InfiniteS
       )}
     </div>
   );
-}
+});

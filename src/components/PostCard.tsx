@@ -1,3 +1,6 @@
+'use client';
+
+import { memo } from 'react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
@@ -20,11 +23,10 @@ export type Post = {
   createdAt: string;
 };
 
-export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
+export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
   const date = new Date(post.createdAt);
   const timeStr = format(date, 'HH:mm');
   const dateStr = format(date, 'MMM dd, yyyy');
-
 
   // Determine Title and Content
   const title = post.title || '';
@@ -171,4 +173,4 @@ export function PostCard({ post, onClick }: { post: Post; onClick?: () => void }
       </div>
     </div>
   );
-}
+});

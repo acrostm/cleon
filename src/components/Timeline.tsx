@@ -1,3 +1,6 @@
+'use client';
+
+import { memo } from 'react';
 import { PostCard, Post } from './PostCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfiniteScroll } from './InfiniteScroll';
@@ -12,7 +15,7 @@ interface Props {
   isLoadingMore: boolean;
 }
 
-export function Timeline({ 
+export const Timeline = memo(function Timeline({ 
   posts, 
   isLoading, 
   isSubmitting, 
@@ -77,4 +80,4 @@ export function Timeline({
       </div>
     </div>
   );
-}
+});
