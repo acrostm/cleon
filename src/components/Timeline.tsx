@@ -1,21 +1,31 @@
-'use client';
-
 import { PostCard, Post } from './PostCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { InfiniteScroll } from './InfiniteScroll';
 
 interface Props {
   posts: Post[];
   isLoading: boolean;
   isSubmitting: boolean;
   onPostClick: (post: Post) => void;
+  onLoadMore: () => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
 }
 
-export function Timeline({ posts, isLoading, isSubmitting, onPostClick }: Props) {
+export function Timeline({ 
+  posts, 
+  isLoading, 
+  isSubmitting, 
+  onPostClick,
+  onLoadMore,
+  hasMore,
+  isLoadingMore
+}: Props) {
   return (
-    <div className="relative space-y-12 pb-20">
+    <div className="relative space-y-12 pb-10">
       {/* The Vertical Rail Line */}
       {!isLoading && posts.length > 0 && (
-        <div className="absolute left-[24px] md:left-[128px] top-8 bottom-8 w-px bg-border/40" />
+        <div className="absolute left-[24px] md:left-[128px] top-8 bottom-0 w-px bg-border/40" />
       )}
 
       <div className="space-y-12">
@@ -48,13 +58,21 @@ export function Timeline({ posts, isLoading, isSubmitting, onPostClick }: Props)
              {[1,2,3].map(i => <Skeleton key={i} className="h-64 w-full rounded-3xl" />)}
           </div>
         ) : (
-          posts.map(post => (
-            <PostCard 
-              key={post.id} 
-              post={post} 
-              onClick={() => onPostClick(post)} 
+          <>
+            {posts.map(post => (
+              <PostCard 
+                key={post.id} 
+                post={post} 
+                onClick={() => onPostClick(post)} 
+              />
+            ))}
+            
+            <InfiniteScroll 
+              onLoadMore={onLoadMore}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
             />
-          ))
+          </>
         )}
       </div>
     </div>

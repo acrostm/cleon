@@ -13,10 +13,14 @@ import { Separator } from '@/components/ui/separator';
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const hasScrolledRef = useRef(false);
 
+  // Scroll to hash on initial load
   useEffect(() => {
     if (!isLoading && posts.length > 0 && !hasScrolledRef.current) {
       if (window.location.hash) {
@@ -39,33 +43,82 @@ export default function Home() {
     }
   }, [posts, isLoading]);
 
+  // Initial Fetch
   useEffect(() => {
-    const fetchPosts = async () => {
+    const fetchInitialPosts = async () => {
       try {
-        const res = await fetch('/api/feed');
+        const res = await fetch('/api/feed?limit=10');
         const data = await res.json();
         if (data.success) {
-          setPosts(prev => {
-            // Only update state if there's a structural change (new post or deleted post)
-            // to prevent unnecessary React re-renders every few seconds
-            const hasChanges = prev.length !== data.data.length || 
-              (prev.length > 0 && data.data.length > 0 && prev[0].id !== data.data[0].id);
-            return hasChanges ? data.data : prev;
-          });
+          setPosts(data.data);
+          setNextCursor(data.nextCursor);
+          setHasMore(data.hasMore);
         }
       } catch (err) {
-        console.error('Failed to fetch posts:', err);
+        console.error('Failed to fetch initial posts:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    // Initial fetch
-    fetchPosts().finally(() => setIsLoading(false));
-
-    // Poll every 5 seconds to get updates from Feishu bot or other clients
-    const intervalId = setInterval(fetchPosts, 5000);
-
-    return () => clearInterval(intervalId);
+    fetchInitialPosts();
   }, []);
+
+  // Polling for new items
+  useEffect(() => {
+    if (isLoading) return;
+
+    const pollNewPosts = async () => {
+      try {
+        // If we have posts, fetch everything since the first one
+        const sinceId = posts.length > 0 ? posts[0].id : null;
+        const url = sinceId ? `/api/feed?since=${sinceId}` : '/api/feed?limit=10';
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.success && data.data.length > 0) {
+          setPosts(prev => {
+            // Filter out any duplicates just in case
+            const newPosts = data.data.filter((newP: Post) => !prev.find(p => p.id === newP.id));
+            if (newPosts.length === 0) return prev;
+            return [...newPosts, ...prev];
+          });
+          
+          // If it was the first fetch (no existing posts), update pagination state
+          if (!sinceId) {
+            setNextCursor(data.nextCursor);
+            setHasMore(data.hasMore);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    };
+
+    const intervalId = setInterval(pollNewPosts, 5000);
+    return () => clearInterval(intervalId);
+  }, [isLoading, posts.length > 0 ? posts[0].id : null]); // Re-attach when top post changes
+
+  const fetchMorePosts = async () => {
+    if (!nextCursor || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/feed?cursor=${nextCursor}&limit=10`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setPosts(prev => [...prev, ...data.data]);
+        setNextCursor(data.nextCursor);
+        setHasMore(data.hasMore);
+      }
+    } catch (err) {
+      console.error('Failed to fetch more posts:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const handleSubmit = async (url: string) => {
     setIsSubmitting(true);
@@ -137,11 +190,14 @@ export default function Home() {
             isLoading={isLoading} 
             isSubmitting={isSubmitting} 
             onPostClick={(post) => setSelectedPost(post)}
+            onLoadMore={fetchMorePosts}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
           />
         </div>
 
         {/* Branding Footer */}
-        {!isLoading && posts.length > 0 && (
+        {!isLoading && posts.length > 0 && !hasMore && (
           <footer className="mt-24 pb-12 text-center space-y-8">
             <Separator className="opacity-50" />
             <div className="flex flex-col items-center">
