@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Timeline } from '@/components/Timeline';
 import { FloatingActionMenu } from '@/components/FloatingActionMenu';
 import { PostDetailModal } from '@/components/PostDetailModal';
@@ -13,61 +13,46 @@ import { Separator } from '@/components/ui/separator';
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  
   const hasScrolledRef = useRef(false);
+  const topPostIdRef = useRef<string | null>(null);
 
+  // Sync ref with state
   useEffect(() => {
-    if (!isLoading && posts.length > 0 && !hasScrolledRef.current) {
-      if (window.location.hash) {
-        const id = window.location.hash.substring(1);
-        const element = document.getElementById(id);
-        if (element) {
-          setTimeout(() => {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            element.style.transition = 'all 1s ease-in-out';
-            element.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.5)';
-            element.style.transform = 'scale(1.02)';
-            setTimeout(() => {
-              element.style.boxShadow = 'none';
-              element.style.transform = 'none';
-            }, 2000);
-          }, 100);
-        }
-      }
-      hasScrolledRef.current = true;
-    }
-  }, [posts, isLoading]);
+    topPostIdRef.current = posts.length > 0 ? posts[0].id : null;
+  }, [posts]);
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const res = await fetch('/api/feed');
-        const data = await res.json();
-        if (data.success) {
-          setPosts(prev => {
-            // Only update state if there's a structural change (new post or deleted post)
-            // to prevent unnecessary React re-renders every few seconds
-            const hasChanges = prev.length !== data.data.length || 
-              (prev.length > 0 && data.data.length > 0 && prev[0].id !== data.data[0].id);
-            return hasChanges ? data.data : prev;
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch posts:', err);
-      }
-    };
-
-    // Initial fetch
-    fetchPosts().finally(() => setIsLoading(false));
-
-    // Poll every 5 seconds to get updates from Feishu bot or other clients
-    const intervalId = setInterval(fetchPosts, 5000);
-
-    return () => clearInterval(intervalId);
+  // Stable event handlers
+  const handlePostClick = useCallback((post: Post) => {
+    setSelectedPost(post);
   }, []);
 
-  const handleSubmit = async (url: string) => {
+  const fetchMorePosts = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const res = await fetch(`/api/feed?cursor=${nextCursor}&limit=10`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setPosts(prev => [...prev, ...data.data]);
+        setNextCursor(data.nextCursor);
+        setHasMore(data.hasMore);
+      }
+    } catch (err) {
+      console.error('Failed to fetch more posts:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [nextCursor, isLoadingMore]);
+
+  const handleSubmit = useCallback(async (url: string) => {
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/feed', {
@@ -93,9 +78,9 @@ export default function Home() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, []);
 
-  const handleDelete = async (postId: string) => {
+  const handleDelete = useCallback(async (postId: string) => {
     try {
       const res = await fetch(`/api/feed/${postId}`, {
         method: 'DELETE',
@@ -112,7 +97,88 @@ export default function Home() {
       console.error('[Delete Error]:', err);
       toast.error('Failed to delete post');
     }
-  };
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedPost(null);
+  }, []);
+
+  // Initial Fetch
+  useEffect(() => {
+    const fetchInitialPosts = async () => {
+      try {
+        const res = await fetch('/api/feed?limit=10');
+        const data = await res.json();
+        if (data.success) {
+          setPosts(data.data);
+          setNextCursor(data.nextCursor);
+          setHasMore(data.hasMore);
+        }
+      } catch (err) {
+        console.error('Failed to fetch initial posts:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInitialPosts();
+  }, []);
+
+  // Stable Polling: Uses ref to avoid resetting interval
+  useEffect(() => {
+    if (isLoading) return;
+
+    const pollNewPosts = async () => {
+      try {
+        const sinceId = topPostIdRef.current;
+        const url = sinceId ? `/api/feed?since=${sinceId}` : '/api/feed?limit=10';
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.success && data.data.length > 0) {
+          setPosts(prev => {
+            const newPosts = data.data.filter((newP: Post) => !prev.find(p => p.id === newP.id));
+            if (newPosts.length === 0) return prev;
+            return [...newPosts, ...prev];
+          });
+          
+          if (!sinceId) {
+            setNextCursor(data.nextCursor);
+            setHasMore(data.hasMore);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    };
+
+    const intervalId = setInterval(pollNewPosts, 5000);
+    return () => clearInterval(intervalId);
+  }, [isLoading]); 
+
+  // Scroll to hash on initial load
+  useEffect(() => {
+    if (!isLoading && posts.length > 0 && !hasScrolledRef.current) {
+      if (window.location.hash) {
+        const id = window.location.hash.substring(1);
+        const element = document.getElementById(id);
+        if (element) {
+          setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.style.transition = 'all 1s ease-in-out';
+            element.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.5)';
+            element.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+              element.style.boxShadow = 'none';
+              element.style.transform = 'none';
+            }, 2000);
+          }, 100);
+        }
+      }
+      hasScrolledRef.current = true;
+    }
+  }, [posts, isLoading]);
 
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-500 selection:bg-indigo-500/10 dark:selection:bg-indigo-500/30">
@@ -136,12 +202,15 @@ export default function Home() {
             posts={posts} 
             isLoading={isLoading} 
             isSubmitting={isSubmitting} 
-            onPostClick={(post) => setSelectedPost(post)}
+            onPostClick={handlePostClick}
+            onLoadMore={fetchMorePosts}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
           />
         </div>
 
         {/* Branding Footer */}
-        {!isLoading && posts.length > 0 && (
+        {!isLoading && posts.length > 0 && !hasMore && (
           <footer className="mt-24 pb-12 text-center space-y-8">
             <Separator className="opacity-50" />
             <div className="flex flex-col items-center">
@@ -165,7 +234,7 @@ export default function Home() {
         {selectedPost && (
           <PostDetailModal 
             post={selectedPost} 
-            onClose={() => setSelectedPost(null)}
+            onClose={handleCloseModal}
             onDelete={handleDelete}
           />
         )}

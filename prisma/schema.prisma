@@ -21,4 +21,6 @@ model Post {
   contentText  String
   mediaUrls    String[]
   createdAt    DateTime @default(now())
+
+  @@index([createdAt])
 }
