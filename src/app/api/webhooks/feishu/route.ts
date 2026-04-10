@@ -71,6 +71,10 @@ async function replyToMessage(messageId: string, text: string) {
 
 export async function POST(req: Request) {
   try {
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const protocol = req.headers.get('x-forwarded-proto') || 'https';
+    const baseUrl = `${protocol}://${host}`;
+
     const body = await req.json();
 
     // 1. URL Verification Challenge
@@ -153,11 +157,14 @@ export async function POST(req: Request) {
 
               if (recentDuplicate) {
                 console.log('Skipping database save, recent duplicate found for URL:', rawUrl);
+                // Even if it's a duplicate, it's helpful to return the link to the existing post
+                const shareUrl = `${baseUrl}/#${recentDuplicate.id}`;
+                await replyToMessage(message.message_id, shareUrl);
                 return;
               }
 
               // 3. Save the extracted post data to the database
-              await prisma.post.create({
+              const post = await prisma.post.create({
                 data: {
                   originalUrl: rawUrl,
                   platform: parsedData.platform,
@@ -169,8 +176,9 @@ export async function POST(req: Request) {
                 }
               });
 
-              // 4. Reply back to the user upon success
-              await replyToMessage(message.message_id, "Saved to timeline!");
+              // 4. Reply back to the user upon success with the shareable link
+              const shareUrl = `${baseUrl}/#${post.id}`;
+              await replyToMessage(message.message_id, shareUrl);
             } catch (parseError: unknown) {
               console.error('Error parsing/saving URL from Feishu bot:', parseError);
               const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
