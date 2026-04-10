@@ -71,9 +71,7 @@ async function replyToMessage(messageId: string, text: string) {
 
 export async function POST(req: Request) {
   try {
-    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    const protocol = req.headers.get('x-forwarded-proto') || 'https';
-    const baseUrl = `${protocol}://${host}`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? new URL(req.url).origin;
 
     const body = await req.json();
 
