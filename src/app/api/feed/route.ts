@@ -16,6 +16,9 @@ export async function POST(req: Request) {
     const url = extractUrl(trimmedRawUrl) || trimmedRawUrl; // fallback to trimmed raw string if regex fails
 
     if (!validateUrl(url)) {
+      await prisma.urlSubmission.create({
+          data: { url, source: 'WEB', status: 'REJECTED', errorMessage: 'Invalid or unsafe URL' }
+      });
       return NextResponse.json({ error: 'Invalid or unsafe URL provided' }, { status: 400 });
     }
 
@@ -34,12 +37,26 @@ export async function POST(req: Request) {
       }
     });
 
+    await prisma.urlSubmission.create({
+        data: { url, source: 'WEB', status: 'SUCCESS', postId: post.id }
+    });
+
     return NextResponse.json({ success: true, data: post }, { status: 201 });
-  } catch (error: any) {
+    } catch (error: any) {
     console.error('------- [API CRASH] Error parsing feed URL -------');
     console.error(error);
-    return NextResponse.json({ 
+
+    // Log failure
+    try {
+        const url = (await req.clone().json()).url || 'unknown';
+        await prisma.urlSubmission.create({
+            data: { url, source: 'WEB', status: 'FAILED', errorMessage: error.message }
+        });
+    } catch {}
+
+    return NextResponse.json({
       error: error.message || 'Failed to parse URL',
+
       details: process.env.NODE_ENV !== 'production' ? error.stack : undefined 
     }, { status: 500 });
   }

@@ -45,9 +45,9 @@ async function getTenantAccessToken() {
 }
 
 // Helper to fetch and scan QR code from image
-async function extractUrlFromImage(messageId: string, imageKey: string): Promise<string | null> {
+async function extractUrlFromImage(messageId: string, imageKey: string): Promise<{ url: string | null, base64Image: string | null }> {
   const token = await getTenantAccessToken();
-  if (!token) return null;
+  if (!token) return { url: null, base64Image: null };
 
   try {
     const res = await fetch(`https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/resources/${imageKey}?type=image`, {
@@ -58,22 +58,25 @@ async function extractUrlFromImage(messageId: string, imageKey: string): Promise
 
     if (!res.ok) {
       console.error('Failed to fetch image from Feishu:', res.statusText);
-      return null;
+      return { url: null, base64Image: null };
     }
 
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
     const arrayBuffer = await res.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
+    const base64Image = `data:${contentType};base64,${buffer.toString('base64')}`;
+
     // Read image using Jimp
     const image = await Jimp.read(buffer);
     const { data, width, height } = image.bitmap;
     
     // Scan for QR code
     const code = jsQR(new Uint8ClampedArray(data), width, height);
-    return code ? code.data : null;
+    return { url: code ? code.data : null, base64Image };
   } catch (error) {
     console.error('Error scanning QR code from Feishu image:', error);
-    return null;
+    return { url: null, base64Image: null };
   }
 }
 
@@ -131,6 +134,7 @@ export async function POST(req: Request) {
 
       // Handle both text and image messages
       let rawUrl: string | null = null;
+      let sharedBase64Image: string | null = null;
 
       if (message.message_type === 'text') {
         try {
@@ -144,8 +148,9 @@ export async function POST(req: Request) {
           const contentObj = JSON.parse(message.content);
           const imageKey = contentObj.image_key;
           if (imageKey) {
-            // Need to await here to check if it's a valid URL before proceeding to background
-            rawUrl = await extractUrlFromImage(message.message_id, imageKey);
+            const result = await extractUrlFromImage(message.message_id, imageKey);
+            rawUrl = result.url;
+            sharedBase64Image = result.base64Image;
           }
         } catch (err) {
           console.error('Failed to process image message:', err);
@@ -155,6 +160,9 @@ export async function POST(req: Request) {
       if (rawUrl) {
         if (!validateUrl(rawUrl)) {
           console.warn('Blocked potentially unsafe or invalid URL:', rawUrl);
+          await prisma.urlSubmission.create({
+              data: { url: rawUrl, source: 'FEISHU', status: 'REJECTED', errorMessage: 'Invalid or unsafe URL' }
+          });
           await replyToMessage(message.message_id, "⚠️ Rejected: The extracted URL is invalid or unsafe.");
           return NextResponse.json({ success: true });
         }
@@ -185,9 +193,17 @@ export async function POST(req: Request) {
             });
 
             if (recentDuplicate) {
+              await prisma.urlSubmission.create({
+                  data: { url: rawUrl!, source: 'FEISHU', status: 'DUPLICATE', postId: recentDuplicate.id }
+              });
               const shareUrl = `${baseUrl}/#${recentDuplicate.id}`;
               await replyToMessage(message.message_id, shareUrl);
               return;
+            }
+
+            // For Jinshi, if we have a scanned image, attach it
+            if (parsedData.platform === 'JINSHI' && sharedBase64Image) {
+                parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
             }
 
             const post = await prisma.post.create({
@@ -202,11 +218,18 @@ export async function POST(req: Request) {
               }
             });
 
+            await prisma.urlSubmission.create({
+                data: { url: rawUrl!, source: 'FEISHU', status: 'SUCCESS', postId: post.id }
+            });
+
             const shareUrl = `${baseUrl}/#${post.id}`;
             await replyToMessage(message.message_id, shareUrl);
           } catch (parseError: unknown) {
             console.error('Error parsing/saving content from Feishu bot:', parseError);
             const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
+            await prisma.urlSubmission.create({
+                data: { url: rawUrl!, source: 'FEISHU', status: 'FAILED', errorMessage }
+            });
             await replyToMessage(message.message_id, `Failed to save: ${errorMessage}`);
           }
         });

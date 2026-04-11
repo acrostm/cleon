@@ -22,21 +22,35 @@ export class JinshiParser implements ContentParser {
       const html = await res.text();
       const $ = cheerio.load(html);
 
-      // Detail page usually has these classes
+      // 1. Try specific Jinshi detail page selectors
       let title = $('.detail-title').text().trim();
       let contentText = $('.detail-content').text().trim();
 
-      // If text is not found, try to look for Nuxt/Next state or general content containers
+      // 2. Try common flash news selectors
       if (!contentText) {
-          contentText = $('.jin-flash-item-container .content').text().trim();
+          contentText = $('.J_flash_text').text().trim() || 
+                        $('.flash-text').text().trim() || 
+                        $('.jin-flash-item-container .content').text().trim();
       }
       
       if (!title) {
-          title = $('.jin-flash-item-container .title').text().trim() || 'Jinshi Flash';
+          title = $('.jin-flash-item-container .title').text().trim();
       }
 
-      // If still empty, it might be an SSR page with JSON in a script tag
-      if (!contentText) {
+      // 3. Fallback to Meta tags (very robust for social sharing/SSR)
+      if (!title) {
+          title = $('meta[property="og:title"]').attr('content') || 
+                  $('title').text().replace('-金十数据', '').trim();
+      }
+
+      if (!contentText || contentText === title) {
+          contentText = $('meta[property="og:description"]').attr('content') || 
+                        $('meta[name="description"]').attr('content') || 
+                        contentText;
+      }
+
+      // 4. Try Nuxt/Next state as last resort
+      if (!contentText || contentText.length < 5) {
           const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});?<\/script>/);
           if (stateMatch) {
               try {
