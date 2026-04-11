@@ -14,7 +14,7 @@ import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 export type Post = {
   id: string;
   originalUrl: string;
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT' | 'YOUTUBE';
+  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT';
   authorName: string;
   avatarUrl: string;
   title?: string | null;
