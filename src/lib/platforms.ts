@@ -10,8 +10,6 @@ export function getPlatformLogo(platform: string, originalUrl: string) {
       case 'WECHAT':
           // WeChat logo from a reliable source (res.wx.qq.com)
           return `https://res.wx.qq.com/a/wx_fed/assets/res/OTE0YTAw.png`;
-      case 'YOUTUBE':
-          return `https://www.google.com/s2/favicons?domain=youtube.com&sz=128`;
       case 'WEB': 
           let domain = 'example.com';
           try { domain = new URL(originalUrl).hostname; } catch(e) {}

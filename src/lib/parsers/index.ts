@@ -4,10 +4,9 @@ import { WebParser } from './web';
 import { XiaohongshuParser } from './xiaohongshu';
 import { DouyinParser } from './douyin';
 import { WechatParser } from './wechat';
-import { YoutubeParser } from './youtube';
 
 export interface ParsedData {
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT' | 'YOUTUBE';
+  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT';
   authorName: string;
   avatarUrl: string;
   title?: string;
@@ -23,7 +22,6 @@ export interface ContentParser {
 const parsers: ContentParser[] = [
   new TwitterParser(),
   new BilibiliParser(),
-  new YoutubeParser(),
   new XiaohongshuParser(),
   new DouyinParser(),
   new WechatParser(),
