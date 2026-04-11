@@ -5,9 +5,10 @@ import { XiaohongshuParser } from './xiaohongshu';
 import { DouyinParser } from './douyin';
 import { WechatParser } from './wechat';
 import { YoutubeParser } from './youtube';
+import { JinshiParser } from './jinshi';
 
 export interface ParsedData {
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT' | 'YOUTUBE';
+  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT' | 'YOUTUBE' | 'JINSHI';
   authorName: string;
   avatarUrl: string;
   title?: string;
@@ -27,6 +28,7 @@ const parsers: ContentParser[] = [
   new XiaohongshuParser(),
   new DouyinParser(),
   new WechatParser(),
+  new JinshiParser(),
   new WebParser(), // Always last as fallback
 ];
 

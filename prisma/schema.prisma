@@ -24,3 +24,16 @@ model Post {
 
   @@index([createdAt])
 }
+
+model UrlSubmission {
+  id           String   @id @default(uuid())
+  url          String
+  source       String   // "FEISHU" or "WEB"
+  status       String   // "SUCCESS", "FAILED", "DUPLICATE", "REJECTED"
+  postId       String?  // References Post.id if successful
+  errorMessage String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([url])
+}
