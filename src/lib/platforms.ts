@@ -12,8 +12,6 @@ export function getPlatformLogo(platform: string, originalUrl: string) {
           return `https://res.wx.qq.com/a/wx_fed/assets/res/OTE0YTAw.png`;
       case 'YOUTUBE':
           return `https://www.google.com/s2/favicons?domain=youtube.com&sz=128`;
-      case 'JINSHI':
-          return `https://www.jin10.com/favicon.ico`;
       case 'WEB': 
           let domain = 'example.com';
           try { domain = new URL(originalUrl).hostname; } catch(e) {}
