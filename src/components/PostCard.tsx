@@ -113,6 +113,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                             src={secureUrl}
                             allowFullScreen={true}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerPolicy="strict-origin-when-cross-origin"
                             className="w-full aspect-video border-0 bg-black block"
                           />
                         ) : isVideo ? (

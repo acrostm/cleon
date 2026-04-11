@@ -103,6 +103,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                           src={secureUrl}
                           allowFullScreen={true}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          referrerPolicy="strict-origin-when-cross-origin"
                           className="w-full aspect-video border-0 bg-black"
                         />
                       ) : isVideo ? (

@@ -31,7 +31,7 @@ const notoSansSC = Noto_Sans_SC({
 export const metadata: Metadata = {
   title: "Cleon | Info Stream",
   description: "Personalized information aggregator timeline.",
-  referrer: 'same-origin',
+  referrer: 'strict-origin-when-cross-origin',
 };
 
 export default function RootLayout({
