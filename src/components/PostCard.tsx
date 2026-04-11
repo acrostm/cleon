@@ -14,7 +14,7 @@ import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 export type Post = {
   id: string;
   originalUrl: string;
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT' | 'YOUTUBE';
+  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT';
   authorName: string;
   avatarUrl: string;
   title?: string | null;
@@ -112,7 +112,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                           <iframe
                             src={secureUrl}
                             allowFullScreen={true}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allow="autoplay; fullscreen"
                             className="w-full aspect-video border-0 bg-black block"
                           />
                         ) : isVideo ? (
