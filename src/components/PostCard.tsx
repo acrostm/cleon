@@ -112,7 +112,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                           <iframe
                             src={secureUrl}
                             allowFullScreen={true}
-                            allow="autoplay; fullscreen"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             className="w-full aspect-video border-0 bg-black block"
                           />
                         ) : isVideo ? (
