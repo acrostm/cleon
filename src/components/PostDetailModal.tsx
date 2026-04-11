@@ -102,7 +102,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                         <iframe
                           src={secureUrl}
                           allowFullScreen={true}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allow="autoplay; fullscreen"
                           className="w-full aspect-video border-0 bg-black"
                         />
                       ) : isVideo ? (
