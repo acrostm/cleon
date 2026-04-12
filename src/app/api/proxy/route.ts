@@ -5,6 +5,7 @@ export const runtime = 'edge';
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const url = searchParams.get('url');
+    const refererParam = searchParams.get('referer');
 
     if (!url) {
         return new NextResponse('Missing url parameter', { status: 400 });
@@ -18,9 +19,14 @@ export async function GET(req: Request) {
         
         const headers: Record<string, string> = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
         };
         
-        if (isXhs) {
+        // Use provided referer if available, otherwise use defaults
+        if (refererParam) {
+            headers['Referer'] = decodeURIComponent(refererParam);
+        } else if (isXhs) {
             headers['Referer'] = 'https://www.xiaohongshu.com/';
         } else if (isTwitter) {
             headers['Referer'] = 'https://twitter.com/';

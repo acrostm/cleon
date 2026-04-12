@@ -51,9 +51,9 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
   return (
     <div id={post.id} className="flex group relative">
       {/* Left Column: Detailed Timestamp */}
-      <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
-        <span className="text-xs font-bold leading-none text-foreground">{timeStr}</span>
-        <span className="text-[9px] uppercase tracking-tighter mt-1.5 font-bold text-muted-foreground">{dateStr}</span>
+      <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-40 group-hover:opacity-100 transition-opacity duration-300" suppressHydrationWarning>
+        <span className="text-xs font-bold leading-none text-foreground" suppressHydrationWarning>{timeStr}</span>
+        <span className="text-[9px] uppercase tracking-tighter mt-1.5 font-bold text-muted-foreground" suppressHydrationWarning>{dateStr}</span>
       </div>
 
       {/* Center Column: The Rail Node */}
@@ -74,7 +74,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
             <div className="relative max-h-[180px] md:max-h-[220px] overflow-hidden group/text w-full">
               <CardHeader className="p-6 pb-2">
                 {/* Mobile Date Header */}
-                <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
+                <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none" suppressHydrationWarning>
                    {dateStr} • {timeStr}
                 </div>
 
@@ -110,7 +110,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                      const needsProxy = lowerUrl.includes('twimg.com') || 
                                         lowerUrl.includes('sns-webpic') || 
                                         lowerUrl.includes('xiaohongshu.com');
-                     const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}` : secureUrl;
+                     const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}&referer=${encodeURIComponent(post.originalUrl)}` : secureUrl;
                      
                      const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
                      
