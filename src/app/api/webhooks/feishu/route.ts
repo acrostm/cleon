@@ -132,108 +132,112 @@ export async function POST(req: Request) {
       const event = body.event;
       const message = event.message;
 
-      // Handle both text and image messages
-      let rawUrl: string | null = null;
-      let sharedBase64Image: string | null = null;
+      // Filter for message types we handle
+      if (message.message_type !== 'text' && message.message_type !== 'image') {
+        return NextResponse.json({ success: true });
+      }
 
-      if (message.message_type === 'text') {
-        try {
-          const contentObj = JSON.parse(message.content);
-          rawUrl = extractUrl(contentObj.text);
-        } catch {
-          console.error('Failed to parse text message content:', message.content);
-        }
-      } else if (message.message_type === 'image') {
-        try {
-          const contentObj = JSON.parse(message.content);
-          const imageKey = contentObj.image_key;
-          if (imageKey) {
-            const result = await extractUrlFromImage(message.message_id, imageKey);
-            rawUrl = result.url;
-            sharedBase64Image = result.base64Image;
-          }
-        } catch (err) {
-          console.error('Failed to process image message:', err);
+      // 1. Immediate duplicate check to prevent processing retries
+      if (processedMessageIds.has(message.message_id)) {
+        return NextResponse.json({ success: true });
+      }
+      processedMessageIds.add(message.message_id);
+
+      // Keep the cache limited
+      if (processedMessageIds.size > 1000) {
+        const iterator = processedMessageIds.values();
+        for (let i = 0; i < 500; i++) {
+          processedMessageIds.delete(iterator.next().value!);
         }
       }
 
-      if (rawUrl) {
-        if (!validateUrl(rawUrl)) {
-          console.warn('Blocked potentially unsafe or invalid URL:', rawUrl);
-          await prisma.urlSubmission.create({
+      // 2. Background processing
+      after(async () => {
+        let rawUrl: string | null = null;
+        let sharedBase64Image: string | null = null;
+
+        try {
+          if (message.message_type === 'text') {
+            const contentObj = JSON.parse(message.content);
+            rawUrl = extractUrl(contentObj.text);
+          } else if (message.message_type === 'image') {
+            const contentObj = JSON.parse(message.content);
+            const imageKey = contentObj.image_key;
+            if (imageKey) {
+              const result = await extractUrlFromImage(message.message_id, imageKey);
+              rawUrl = result.url;
+              sharedBase64Image = result.base64Image;
+            }
+          }
+
+          if (!rawUrl) {
+            if (message.message_type === 'image') {
+              await replyToMessage(message.message_id, "🔍 未在图片中检测到二维码。请确保图片包含金十数据的分享二维码。");
+            }
+            return;
+          }
+
+          if (!validateUrl(rawUrl)) {
+            await prisma.urlSubmission.create({
               data: { url: rawUrl, source: 'FEISHU', status: 'REJECTED', errorMessage: 'Invalid or unsafe URL' }
+            });
+            await replyToMessage(message.message_id, `⚠️ 拒绝：提取到的 URL 无效或不安全。\nURL: ${rawUrl}`);
+            return;
+          }
+
+          // Proceed with parsing
+          const parser = getParserForUrl(rawUrl);
+          const parsedData = await parser.parse(rawUrl);
+
+          const recentDuplicate = await prisma.post.findFirst({
+            where: {
+              originalUrl: rawUrl,
+              createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }
+            }
           });
-          await replyToMessage(message.message_id, "⚠️ Rejected: The extracted URL is invalid or unsafe.");
-          return NextResponse.json({ success: true });
-        }
 
-        if (processedMessageIds.has(message.message_id)) {
-          console.log('Skipping already processed message_id:', message.message_id);
-          return NextResponse.json({ success: true });
-        }
-
-        processedMessageIds.add(message.message_id);
-        if (processedMessageIds.size > 1000) {
-          const iterator = processedMessageIds.values();
-          for (let i = 0; i < 500; i++) {
-            processedMessageIds.delete(iterator.next().value!);
-          }
-        }
-
-        after(async () => {
-          try {
-            const parser = getParserForUrl(rawUrl!);
-            const parsedData = await parser.parse(rawUrl!);
-
-            const recentDuplicate = await prisma.post.findFirst({
-              where: {
-                originalUrl: rawUrl!,
-                createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) }
-              }
-            });
-
-            if (recentDuplicate) {
-              await prisma.urlSubmission.create({
-                  data: { url: rawUrl!, source: 'FEISHU', status: 'DUPLICATE', postId: recentDuplicate.id }
-              });
-              const shareUrl = `${baseUrl}/#${recentDuplicate.id}`;
-              await replyToMessage(message.message_id, shareUrl);
-              return;
-            }
-
-            // For Jinshi, if we have a scanned image, attach it
-            if (parsedData.platform === 'JINSHI' && sharedBase64Image) {
-                parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
-            }
-
-            const post = await prisma.post.create({
-              data: {
-                originalUrl: rawUrl!,
-                platform: parsedData.platform,
-                authorName: parsedData.authorName,
-                avatarUrl: parsedData.avatarUrl,
-                title: parsedData.title,
-                contentText: parsedData.contentText,
-                mediaUrls: parsedData.mediaUrls || [],
-              }
-            });
-
+          if (recentDuplicate) {
             await prisma.urlSubmission.create({
-                data: { url: rawUrl!, source: 'FEISHU', status: 'SUCCESS', postId: post.id }
+              data: { url: rawUrl, source: 'FEISHU', status: 'DUPLICATE', postId: recentDuplicate.id }
             });
-
-            const shareUrl = `${baseUrl}/#${post.id}`;
-            await replyToMessage(message.message_id, shareUrl);
-          } catch (parseError: unknown) {
-            console.error('Error parsing/saving content from Feishu bot:', parseError);
-            const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown error';
-            await prisma.urlSubmission.create({
-                data: { url: rawUrl!, source: 'FEISHU', status: 'FAILED', errorMessage }
-            });
-            await replyToMessage(message.message_id, `Failed to save: ${errorMessage}`);
+            const shareUrl = `${baseUrl}/#${recentDuplicate.id}`;
+            await replyToMessage(message.message_id, `✨ 已存在：${shareUrl}\n原文: ${rawUrl}`);
+            return;
           }
-        });
-      }
+
+          // For Jinshi, attach the scanned image if available
+          if (parsedData.platform === 'JINSHI' && sharedBase64Image) {
+            parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
+          }
+
+          const post = await prisma.post.create({
+            data: {
+              originalUrl: rawUrl,
+              platform: parsedData.platform,
+              authorName: parsedData.authorName,
+              avatarUrl: parsedData.avatarUrl,
+              title: parsedData.title,
+              contentText: parsedData.contentText,
+              mediaUrls: parsedData.mediaUrls || [],
+            }
+          });
+
+          await prisma.urlSubmission.create({
+            data: { url: rawUrl, source: 'FEISHU', status: 'SUCCESS', postId: post.id }
+          });
+
+          const shareUrl = `${baseUrl}/#${post.id}`;
+          await replyToMessage(message.message_id, `✅ 已成功采集！\n预览：${shareUrl}\n解析地址：${rawUrl}`);
+
+        } catch (error: any) {
+          console.error('Background processing error:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          await prisma.urlSubmission.create({
+            data: { url: rawUrl || 'unknown', source: 'FEISHU', status: 'FAILED', errorMessage }
+          });
+          await replyToMessage(message.message_id, `❌ 处理失败：${errorMessage}${rawUrl ? `\n地址: ${rawUrl}` : ''}`);
+        }
+      });
 
       return NextResponse.json({ success: true });
     }
