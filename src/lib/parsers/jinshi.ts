@@ -22,44 +22,24 @@ export class JinshiParser implements ContentParser {
       const html = await res.text();
       const $ = cheerio.load(html);
 
-      // 1. Try extraction from INITIAL_STATE if it exists (for SSR pages)
-      let title = '';
-      let contentText = '';
-      
-      const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});?<\/script>/);
-      if (stateMatch) {
-          try {
-              const state = JSON.parse(stateMatch[1]);
-              // Drill down into common Jin10 state structures
-              const article = state.newsDetail || state.flashDetail || state.articleDetail?.data;
-              if (article) {
-                  title = article.title || article.remark || '';
-                  // Sometimes content is html, we should strip it
-                  contentText = article.content ? cheerio.load(article.content).text() : (article.description || '');
-              }
-          } catch (e) {
-              console.error("Failed to parse Jinshi INITIAL_STATE:", e);
-          }
-      }
+      // 1. Try specific Jinshi detail page selectors
+      let title = $('.detail-title').text().trim();
+      let contentText = $('.detail-content').text().trim();
 
-      // 2. Fallback to specific Jinshi detail page selectors
-      if (!title) {
-        title = $('.detail-title').text().trim() || 
-                $('.jin-flash-item-container .title').text().trim();
-      }
-
+      // 2. Try common flash news selectors
       if (!contentText) {
-        contentText = $('.detail-content').text().trim() || 
-                      $('.J_flash_text').text().trim() || 
-                      $('.flash-text').text().trim() || 
-                      $('.jin-flash-item-container .content').text().trim();
+          contentText = $('.J_flash_text').text().trim() || 
+                        $('.flash-text').text().trim() || 
+                        $('.jin-flash-item-container .content').text().trim();
+      }
+      
+      if (!title) {
+          title = $('.jin-flash-item-container .title').text().trim();
       }
 
-      // 3. Robust Meta tags (very reliable for social sharing/SEO)
+      // 3. Fallback to Meta tags (very robust for social sharing/SSR)
       if (!title) {
           title = $('meta[property="og:title"]').attr('content') || 
-                  $('meta[name="twitter:title"]').attr('content') ||
-                  $('h1').first().text().trim() ||
                   $('title').text().replace('-金十数据', '').trim();
       }
 
@@ -69,22 +49,27 @@ export class JinshiParser implements ContentParser {
                         contentText;
       }
 
-      // 4. Final Generic HTML Fallback
+      // 4. Try Nuxt/Next state as last resort
       if (!contentText || contentText.length < 5) {
-          const paragraphs: string[] = [];
-          $('p').each((_, el) => {
-              const text = $(el).text().trim();
-              if (text.length > 20) paragraphs.push(text);
-          });
-          if (paragraphs.length > 0) {
-             contentText = paragraphs.join('\n\n');
-          } else {
-             contentText = $('.news-text').text().trim() || $('.news-content').text().trim() || contentText;
+          const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});?<\/script>/);
+          if (stateMatch) {
+              try {
+                  const state = JSON.parse(stateMatch[1]);
+                  // Adjust based on actual Jin10 state structure if discovered
+                  const newsDetail = state.newsDetail || state.flashDetail;
+                  if (newsDetail) {
+                      title = newsDetail.title || title;
+                      contentText = newsDetail.content || contentText;
+                  }
+              } catch (e) {
+                  console.error("Failed to parse Jinshi INITIAL_STATE:", e);
+              }
           }
       }
 
-      // Final cleanup
+      // Final fallback if we have absolutely nothing
       if (!contentText) {
+          // Sometimes the whole news content is in the title for flash news
           contentText = title;
       }
 

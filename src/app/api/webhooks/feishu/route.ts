@@ -4,9 +4,6 @@ import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 import jsQR from 'jsqr';
 import { Jimp } from 'jimp';
-import { uploadMediaToR2 } from '@/lib/r2';
-import { isEmbedUrl } from '@/lib/utils';
-import crypto from 'crypto';
 
 // In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
 // This works per-instance; combined with 'after()', it virtually eliminates duplicate processing.
@@ -213,37 +210,15 @@ export async function POST(req: Request) {
             parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
           }
 
-          const postId = crypto.randomUUID();
-          const originalMediaUrls = parsedData.mediaUrls || [];
-          const mediaUrls: string[] = [];
-
-          // Persist media to Cloudflare R2 if it's not an embed (like Bilibili/YT)
-          for (const mediaUrl of originalMediaUrls) {
-              if (isEmbedUrl(mediaUrl)) {
-                  mediaUrls.push(mediaUrl);
-                  continue;
-              }
-
-              const r2Url = await uploadMediaToR2(mediaUrl, postId, rawUrl);
-              if (r2Url) {
-                  mediaUrls.push(r2Url);
-              } else {
-                  // Fallback to original URL if upload fails
-                  mediaUrls.push(mediaUrl);
-              }
-          }
-
           const post = await prisma.post.create({
             data: {
-              id: postId,
               originalUrl: rawUrl,
               platform: parsedData.platform,
               authorName: parsedData.authorName,
               avatarUrl: parsedData.avatarUrl,
               title: parsedData.title,
               contentText: parsedData.contentText,
-              mediaUrls: mediaUrls,
-              originalMediaUrls: originalMediaUrls,
+              mediaUrls: parsedData.mediaUrls || [],
             }
           });
 
