@@ -12,16 +12,15 @@ datasource db {
 }
 
 model Post {
-  id                String   @id @default(uuid())
-  originalUrl       String
-  platform          String
-  authorName        String
-  avatarUrl         String
-  title             String?  @db.Text
-  contentText       String
-  mediaUrls         String[]
-  originalMediaUrls String[] @default([])
-  createdAt         DateTime @default(now())
+  id           String   @id @default(uuid())
+  originalUrl  String
+  platform     String
+  authorName   String
+  avatarUrl    String
+  title        String?  @db.Text
+  contentText  String
+  mediaUrls    String[]
+  createdAt    DateTime @default(now())
 
   @@index([createdAt])
 }
