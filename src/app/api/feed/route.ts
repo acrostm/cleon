@@ -4,6 +4,7 @@ import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 import { isEmbedUrl } from '@/lib/utils';
 import { uploadMediaToR2 } from '@/lib/r2';
+import crypto from 'crypto';
 
 export async function POST(req: Request) {
   let url = 'unknown';

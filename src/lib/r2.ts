@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import crypto from 'crypto';
 
 const r2Client = new S3Client({
   region: "auto",
@@ -75,8 +76,10 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
 
     const publicDomain = process.env.R2_PUBLIC_DOMAIN?.replace(/\/$/, "");
     return `${publicDomain}/${fileName}`;
-  } catch (error) {
-    console.error(`[R2 Upload Error] URL: ${url}`, error);
+  } catch (error: any) {
+    console.error(`[R2 Upload Error] URL: ${url}`);
+    console.error(`  Error: ${error.message || error}`);
+    if (error.stack) console.error(`  Stack: ${error.stack}`);
     return null;
   }
 }

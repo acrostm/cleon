@@ -6,6 +6,7 @@ import jsQR from 'jsqr';
 import { Jimp } from 'jimp';
 import { uploadMediaToR2 } from '@/lib/r2';
 import { isEmbedUrl } from '@/lib/utils';
+import crypto from 'crypto';
 
 // In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
 // This works per-instance; combined with 'after()', it virtually eliminates duplicate processing.
