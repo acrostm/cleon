@@ -4,6 +4,7 @@ import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 
 export async function POST(req: Request) {
+  let url = 'unknown';
   try {
     const body = await req.json();
     const rawUrl = body.url;
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     const trimmedRawUrl = rawUrl.trim();
-    const url = extractUrl(trimmedRawUrl) || trimmedRawUrl; // fallback to trimmed raw string if regex fails
+    url = extractUrl(trimmedRawUrl) || trimmedRawUrl; 
 
     if (!validateUrl(url)) {
       await prisma.urlSubmission.create({
@@ -48,11 +49,12 @@ export async function POST(req: Request) {
 
     // Log failure
     try {
-        const url = (await req.clone().json()).url || 'unknown';
         await prisma.urlSubmission.create({
             data: { url, source: 'WEB', status: 'FAILED', errorMessage: error.message }
         });
-    } catch {}
+    } catch (e) {
+        console.error('Failed to log URL submission failure:', e);
+    }
 
     return NextResponse.json({
       error: error.message || 'Failed to parse URL',

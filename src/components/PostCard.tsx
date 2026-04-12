@@ -104,13 +104,21 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                      const isVideo = isVideoUrl(url);
                      const isEmbed = isEmbedUrl(url);
                      const secureUrl = url.replace(/^http:\/\//i, 'https://');
+
+                     // Media Proxy for Hotlinking (X/Twitter and Xiaohongshu)
+                     const lowerUrl = secureUrl.toLowerCase();
+                     const needsProxy = lowerUrl.includes('twimg.com') || 
+                                        lowerUrl.includes('sns-webpic') || 
+                                        lowerUrl.includes('xiaohongshu.com');
+                     const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}` : secureUrl;
+                     
                      const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
                      
                      return (
                      <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 w-full ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
                         {isEmbed ? (
                           <iframe
-                            src={secureUrl}
+                            src={displayUrl}
                             allowFullScreen={true}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             referrerPolicy="strict-origin-when-cross-origin"
@@ -118,7 +126,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                           />
                         ) : isVideo ? (
                           <video
-                            src={secureUrl}
+                            src={displayUrl}
                             autoPlay
                             muted
                             loop
@@ -127,8 +135,8 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                           />
                         ) : (
                           <img 
-                            src={secureUrl} 
-                            referrerPolicy="no-referrer"
+                            src={displayUrl} 
+                            referrerPolicy={needsProxy ? "no-referrer" : "strict-origin-when-cross-origin"}
                             alt={`Media ${i}`} 
                             loading="lazy"
                             className={commonClass} 
