@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useEffect } from 'react';
+import { memo } from 'react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
@@ -24,12 +24,9 @@ export type Post = {
 };
 
 export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
   const date = new Date(post.createdAt);
-  const timeStr = mounted ? format(date, 'HH:mm') : '';
-  const dateStr = mounted ? format(date, 'MMM dd, yyyy') : '';
+  const timeStr = format(date, 'HH:mm');
+  const dateStr = format(date, 'MMM dd, yyyy');
 
   // Determine Title and Content
   const title = post.title || '';
@@ -78,7 +75,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
               <CardHeader className="p-6 pb-2">
                 {/* Mobile Date Header */}
                 <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
-                   {dateStr && timeStr ? `${dateStr} • ${timeStr}` : ''}
+                   {dateStr} • {timeStr}
                 </div>
 
                 {/* Dynamic Title */}
@@ -107,21 +104,13 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                      const isVideo = isVideoUrl(url);
                      const isEmbed = isEmbedUrl(url);
                      const secureUrl = url.replace(/^http:\/\//i, 'https://');
-
-                     // Media Proxy for Hotlinking (X/Twitter and Xiaohongshu)
-                     const lowerUrl = secureUrl.toLowerCase();
-                     const needsProxy = lowerUrl.includes('twimg.com') || 
-                                        lowerUrl.includes('sns-webpic') || 
-                                        lowerUrl.includes('xiaohongshu.com');
-                     const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}&referer=${encodeURIComponent(post.originalUrl)}` : secureUrl;
-                     
                      const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
                      
                      return (
                      <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 w-full ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
                         {isEmbed ? (
                           <iframe
-                            src={displayUrl}
+                            src={secureUrl}
                             allowFullScreen={true}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             referrerPolicy="strict-origin-when-cross-origin"
@@ -129,7 +118,7 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                           />
                         ) : isVideo ? (
                           <video
-                            src={displayUrl}
+                            src={secureUrl}
                             autoPlay
                             muted
                             loop
@@ -138,8 +127,8 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                           />
                         ) : (
                           <img 
-                            src={displayUrl} 
-                            referrerPolicy={needsProxy ? "no-referrer" : "strict-origin-when-cross-origin"}
+                            src={secureUrl} 
+                            referrerPolicy="no-referrer"
                             alt={`Media ${i}`} 
                             loading="lazy"
                             className={commonClass} 
