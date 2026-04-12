@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
 import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
+import { isEmbedUrl } from '@/lib/utils';
+import { uploadMediaToR2 } from '@/lib/r2';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: Request) {
   let url = 'unknown';
@@ -26,15 +29,38 @@ export async function POST(req: Request) {
     const parser = getParserForUrl(url);
     const parsedData = await parser.parse(url);
 
+    // Pre-generate Post ID for R2 folder organization
+    const postId = uuidv4();
+    const originalMediaUrls = parsedData.mediaUrls || [];
+    const mediaUrls: string[] = [];
+
+    // Persist media to Cloudflare R2 if it's not an embed (like Bilibili/YT)
+    for (const mediaUrl of originalMediaUrls) {
+        if (isEmbedUrl(mediaUrl)) {
+            mediaUrls.push(mediaUrl);
+            continue;
+        }
+
+        const r2Url = await uploadMediaToR2(mediaUrl, postId, url);
+        if (r2Url) {
+            mediaUrls.push(r2Url);
+        } else {
+            // Fallback to original URL if upload fails
+            mediaUrls.push(mediaUrl);
+        }
+    }
+
     const post = await prisma.post.create({
       data: {
+        id: postId,
         originalUrl: url,
         platform: parsedData.platform,
         authorName: parsedData.authorName,
         avatarUrl: parsedData.avatarUrl,
         title: parsedData.title,
         contentText: parsedData.contentText,
-        mediaUrls: parsedData.mediaUrls || [],
+        mediaUrls: mediaUrls,
+        originalMediaUrls: originalMediaUrls,
       }
     });
 
