@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
 import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
+import { isEmbedUrl } from '@/lib/utils';
+import { uploadMediaToR2 } from '@/lib/r2';
+import crypto from 'crypto';
 
 export async function POST(req: Request) {
+  let url = 'unknown';
   try {
     const body = await req.json();
     const rawUrl = body.url;
@@ -13,7 +17,7 @@ export async function POST(req: Request) {
     }
 
     const trimmedRawUrl = rawUrl.trim();
-    const url = extractUrl(trimmedRawUrl) || trimmedRawUrl; // fallback to trimmed raw string if regex fails
+    url = extractUrl(trimmedRawUrl) || trimmedRawUrl; 
 
     if (!validateUrl(url)) {
       await prisma.urlSubmission.create({
@@ -25,15 +29,38 @@ export async function POST(req: Request) {
     const parser = getParserForUrl(url);
     const parsedData = await parser.parse(url);
 
+    // Pre-generate Post ID for R2 folder organization
+    const postId = crypto.randomUUID();
+    const originalMediaUrls = parsedData.mediaUrls || [];
+    const mediaUrls: string[] = [];
+
+    // Persist media to Cloudflare R2 if it's not an embed (like Bilibili/YT)
+    for (const mediaUrl of originalMediaUrls) {
+        if (isEmbedUrl(mediaUrl)) {
+            mediaUrls.push(mediaUrl);
+            continue;
+        }
+
+        const r2Url = await uploadMediaToR2(mediaUrl, postId, url);
+        if (r2Url) {
+            mediaUrls.push(r2Url);
+        } else {
+            // Fallback to original URL if upload fails
+            mediaUrls.push(mediaUrl);
+        }
+    }
+
     const post = await prisma.post.create({
       data: {
+        id: postId,
         originalUrl: url,
         platform: parsedData.platform,
         authorName: parsedData.authorName,
         avatarUrl: parsedData.avatarUrl,
         title: parsedData.title,
         contentText: parsedData.contentText,
-        mediaUrls: parsedData.mediaUrls || [],
+        mediaUrls: mediaUrls,
+        originalMediaUrls: originalMediaUrls,
       }
     });
 
@@ -48,11 +75,12 @@ export async function POST(req: Request) {
 
     // Log failure
     try {
-        const url = (await req.clone().json()).url || 'unknown';
         await prisma.urlSubmission.create({
             data: { url, source: 'WEB', status: 'FAILED', errorMessage: error.message }
         });
-    } catch {}
+    } catch (e) {
+        console.error('Failed to log URL submission failure:', e);
+    }
 
     return NextResponse.json({
       error: error.message || 'Failed to parse URL',
