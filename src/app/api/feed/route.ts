@@ -4,7 +4,6 @@ import { extractUrl, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 import { isEmbedUrl } from '@/lib/utils';
 import { uploadMediaToR2 } from '@/lib/r2';
-import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: Request) {
   let url = 'unknown';
@@ -30,7 +29,7 @@ export async function POST(req: Request) {
     const parsedData = await parser.parse(url);
 
     // Pre-generate Post ID for R2 folder organization
-    const postId = uuidv4();
+    const postId = crypto.randomUUID();
     const originalMediaUrls = parsedData.mediaUrls || [];
     const mediaUrls: string[] = [];
 

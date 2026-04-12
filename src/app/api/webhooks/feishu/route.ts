@@ -6,7 +6,6 @@ import jsQR from 'jsqr';
 import { Jimp } from 'jimp';
 import { uploadMediaToR2 } from '@/lib/r2';
 import { isEmbedUrl } from '@/lib/utils';
-import { v4 as uuidv4 } from 'uuid';
 
 // In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
 // This works per-instance; combined with 'after()', it virtually eliminates duplicate processing.
@@ -213,7 +212,7 @@ export async function POST(req: Request) {
             parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
           }
 
-          const postId = uuidv4();
+          const postId = crypto.randomUUID();
           const originalMediaUrls = parsedData.mediaUrls || [];
           const mediaUrls: string[] = [];
 

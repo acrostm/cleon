@@ -1,5 +1,4 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { v4 as uuidv4 } from "uuid";
 
 const r2Client = new S3Client({
   region: "auto",
@@ -60,7 +59,10 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
         if (match) extension = match[1];
     }
 
-    const fileName = `${postId}/${uuidv4()}.${extension}`;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const fileName = `${year}/${month}/${postId}/${crypto.randomUUID()}.${extension}`;
 
     await r2Client.send(
       new PutObjectCommand({
