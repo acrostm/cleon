@@ -108,11 +108,18 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
                      const isEmbed = isEmbedUrl(url);
                      const secureUrl = url.replace(/^http:\/\//i, 'https://');
 
-                     // Media Proxy for Hotlinking (X/Twitter and Xiaohongshu)
+                     // Media Proxy Logic: Only proxy platform URLs with hotlinking protection.
+                     // DO NOT proxy R2 URLs as they are already public and optimized.
                      const lowerUrl = secureUrl.toLowerCase();
-                     const needsProxy = lowerUrl.includes('twimg.com') || 
+                     const isR2 = lowerUrl.includes('r2.dev') || 
+                                  (process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN && lowerUrl.includes(process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN.toLowerCase()));
+                     
+                     const needsProxy = !isR2 && (
+                                        lowerUrl.includes('twimg.com') || 
                                         lowerUrl.includes('sns-webpic') || 
-                                        lowerUrl.includes('xiaohongshu.com');
+                                        lowerUrl.includes('xiaohongshu.com')
+                     );
+                     
                      const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}&referer=${encodeURIComponent(post.originalUrl)}` : secureUrl;
                      
                      const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
