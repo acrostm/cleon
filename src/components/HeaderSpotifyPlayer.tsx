@@ -1,7 +1,8 @@
 "use client";
 
 import { SpotifyCard } from "@/components/spotify-card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { SiSpotify } from "@icons-pack/react-simple-icons";
 import {
   DropdownMenu,
@@ -22,10 +23,8 @@ export function HeaderSpotifyPlayer() {
       {/* Mobile/Small Tablet View: Show an icon that opens the card in a dropdown */}
       <div className="md:hidden">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="rounded-full w-10 h-10 border-indigo-500/20 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400">
-              <SiSpotify size={20} />
-            </Button>
+          <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline", size: "icon" }), "rounded-full w-10 h-10 border-indigo-500/20 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400")}>
+            <SiSpotify size={20} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="p-0 border-none bg-transparent shadow-2xl">
             <div className="w-72 p-1">

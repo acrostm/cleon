@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-// @ts-ignore
-import spotifyUrlInfo from "spotify-url-info";
+// Use require to bypass TypeScript "only refers to a type" error
+const spotifyUrlInfo = require("spotify-url-info");
 
-const { getPreview } = (spotifyUrlInfo as any)(fetch) as {
+const { getPreview } = spotifyUrlInfo(fetch) as {
   getPreview: (url: string) => Promise<{
     title: string;
     artist: string;
