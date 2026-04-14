@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-// @ts-expect-error no types available
 import spotifyUrlInfo from "spotify-url-info";
 
 const { getPreview } = spotifyUrlInfo(fetch) as {
