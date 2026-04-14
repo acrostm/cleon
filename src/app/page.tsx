@@ -186,16 +186,7 @@ export default function Home() {
       <div className="max-w-2xl mx-auto px-4 py-8 md:py-16 flex flex-col min-h-screen">
         
         {/* Site Header */}
-        <header className="flex items-start justify-between mb-12 md:mb-20">
-           <div className="flex flex-col">
-              <h1 className="text-3xl font-black tracking-tighter text-indigo-600 dark:text-indigo-400 hover:opacity-80 transition-opacity cursor-default uppercase">
-                CLEON
-              </h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-muted-foreground mt-1">
-                Aggregated Stream
-              </p>
-           </div>
-           
+        <header className="flex items-start justify-end mb-12 md:mb-20">
            <div className="flex items-center gap-2 md:gap-4">
               <HeaderSpotifyPlayer />
               <ThemeToggle />

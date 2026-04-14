@@ -15,8 +15,8 @@ export function HeaderSpotifyPlayer() {
 
   return (
     <div className="flex items-center">
-      {/* Desktop View: Show the full card scaled down slightly */}
-      <div className="hidden md:block w-64 transform scale-90 origin-right transition-all hover:scale-95">
+      {/* Desktop View: Show the full card */}
+      <div className="hidden md:block w-72 lg:w-80 transition-all hover:scale-[1.02]">
         <SpotifyCard url={spotifyUrl} className="shadow-lg border-primary/10" />
       </div>
 
