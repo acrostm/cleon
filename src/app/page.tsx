@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Timeline } from '@/components/Timeline';
 import { FloatingActionMenu } from '@/components/FloatingActionMenu';
 import { PostDetailModal } from '@/components/PostDetailModal';
@@ -8,6 +8,7 @@ import { Post } from '@/components/PostCard';
 import { toast } from 'sonner';
 import { AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { HeaderSpotifyPlayer } from '@/components/HeaderSpotifyPlayer';
 import { Separator } from '@/components/ui/separator';
 
 export default function Home() {
@@ -185,7 +186,7 @@ export default function Home() {
       <div className="max-w-2xl mx-auto px-4 py-8 md:py-16 flex flex-col min-h-screen">
         
         {/* Site Header */}
-        <header className="flex items-center justify-between mb-12 md:mb-20">
+        <header className="flex items-start justify-between mb-12 md:mb-20">
            <div className="flex flex-col">
               <h1 className="text-3xl font-black tracking-tighter text-indigo-600 dark:text-indigo-400 hover:opacity-80 transition-opacity cursor-default uppercase">
                 CLEON
@@ -194,7 +195,11 @@ export default function Home() {
                 Aggregated Stream
               </p>
            </div>
-           <ThemeToggle />
+           
+           <div className="flex items-center gap-2 md:gap-4">
+              <HeaderSpotifyPlayer />
+              <ThemeToggle />
+           </div>
         </header>
 
         <div className="flex-1">
