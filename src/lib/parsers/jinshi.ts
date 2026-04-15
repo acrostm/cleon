@@ -25,17 +25,25 @@ export class JinshiParser implements ContentParser {
       // 1. Try extraction from INITIAL_STATE if it exists (for SSR pages)
       let title = '';
       let contentText = '';
+      const mediaUrls: string[] = [];
       
       const stateMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?});?<\/script>/);
       if (stateMatch) {
           try {
               const state = JSON.parse(stateMatch[1]);
-              // Drill down into common Jin10 state structures
               const article = state.newsDetail || state.flashDetail || state.articleDetail?.data;
               if (article) {
                   title = article.title || article.remark || '';
-                  // Sometimes content is html, we should strip it
                   contentText = article.content ? cheerio.load(article.content).text() : (article.description || '');
+                  
+                  // Extract images from content
+                  if (article.content) {
+                      const content$ = cheerio.load(article.content);
+                      content$('img').each((_, img) => {
+                          const src = $(img).attr('src');
+                          if (src) mediaUrls.push(src);
+                      });
+                  }
               }
           } catch (e) {
               console.error("Failed to parse Jinshi INITIAL_STATE:", e);
@@ -45,14 +53,16 @@ export class JinshiParser implements ContentParser {
       // 2. Fallback to specific Jinshi detail page selectors
       if (!title) {
         title = $('.detail-title').text().trim() || 
-                $('.jin-flash-item-container .title').text().trim();
+                $('.jin-flash-item-container .title').text().trim() ||
+                $('.news-detail-title').text().trim();
       }
 
       if (!contentText) {
         contentText = $('.detail-content').text().trim() || 
                       $('.J_flash_text').text().trim() || 
                       $('.flash-text').text().trim() || 
-                      $('.jin-flash-item-container .content').text().trim();
+                      $('.jin-flash-item-container .content').text().trim() ||
+                      $('.news-detail-content').text().trim();
       }
 
       // 3. Robust Meta tags (very reliable for social sharing/SEO)
@@ -74,12 +84,24 @@ export class JinshiParser implements ContentParser {
           const paragraphs: string[] = [];
           $('p').each((_, el) => {
               const text = $(el).text().trim();
-              if (text.length > 20) paragraphs.push(text);
+              // Jinshi often has very short sentences, let's be more lenient
+              if (text.length > 5) paragraphs.push(text);
           });
           if (paragraphs.length > 0) {
              contentText = paragraphs.join('\n\n');
-          } else {
-             contentText = $('.news-text').text().trim() || $('.news-content').text().trim() || contentText;
+          }
+      }
+
+      // 5. Image extraction from HTML
+      if (mediaUrls.length === 0) {
+          $('.detail-content img, .flash-item img, .news-detail-content img').each((_, img) => {
+              const src = $(img).attr('src');
+              if (src && !src.includes('favicon')) mediaUrls.push(src);
+          });
+          
+          if (mediaUrls.length === 0) {
+              const ogImage = $('meta[property="og:image"]').attr('content');
+              if (ogImage) mediaUrls.push(ogImage);
           }
       }
 
@@ -94,7 +116,7 @@ export class JinshiParser implements ContentParser {
         avatarUrl: 'https://www.jin10.com/favicon.ico',
         title: title || '金十快讯',
         contentText: contentText,
-        mediaUrls: [],
+        mediaUrls: mediaUrls,
       };
     } catch (error) {
       console.error("[Jinshi Parser Error]:", error);

@@ -91,7 +91,10 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
       })
     );
 
-    const publicDomain = process.env.R2_PUBLIC_DOMAIN?.replace(/\/$/, "");
+    const publicDomain = (process.env.R2_PUBLIC_DOMAIN || process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN)?.replace(/\/$/, "");
+    if (!publicDomain) {
+      console.warn("[R2 Trace] R2_PUBLIC_DOMAIN is not set, resulting URL will be partial.");
+    }
     const finalUrl = `${publicDomain}/${fileName}`;
     console.log(`[R2 Trace] SUCCESS! R2 URL: ${finalUrl}`);
     return finalUrl;
