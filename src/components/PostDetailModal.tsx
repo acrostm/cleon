@@ -18,7 +18,7 @@ import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 interface Props {
   post: Post | null;
   onClose: () => void;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => Promise<boolean>;
 }
 
 export function PostDetailModal({ post, onClose, onDelete }: Props) {
@@ -37,9 +37,11 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
       return;
     }
     setIsDeleting(true);
-    await onDelete(post.id);
+    const success = await onDelete(post.id);
     setIsDeleting(false);
-    onClose();
+    if (success) {
+      onClose();
+    }
   };
 
   return (

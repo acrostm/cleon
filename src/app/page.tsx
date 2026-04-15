@@ -91,12 +91,15 @@ export default function Home() {
       if (data.success) {
         setPosts(prev => prev.filter(p => p.id !== postId));
         toast.success('Post removed from timeline');
+        return true;
       } else {
         toast.error(data.error || 'Failed to delete post');
+        return false;
       }
     } catch (err) {
       console.error('[Delete Error]:', err);
       toast.error('Failed to delete post');
+      return false;
     }
   }, []);
 

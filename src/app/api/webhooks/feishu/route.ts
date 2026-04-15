@@ -210,7 +210,12 @@ export async function POST(req: Request) {
 
           // For Jinshi or any scanned image, add it to the media pool
           if (sharedBase64Image) {
-            parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
+            if (parsedData.platform === 'JINSHI') {
+              // For Jinshi, the user specifically wants the export image as the media_url
+              parsedData.mediaUrls = [sharedBase64Image];
+            } else {
+              parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
+            }
           }
 
           const postId = crypto.randomUUID();
@@ -224,14 +229,16 @@ export async function POST(req: Request) {
                   continue;
               }
 
+              // uploadMediaToR2 now handles base64 data URLs
               const r2Url = await uploadMediaToR2(mediaUrl, postId, rawUrl);
               if (r2Url) {
                   mediaUrls.push(r2Url);
-              } else {
-                  // Fallback to original URL if upload fails
+              } else if (!mediaUrl.startsWith('data:')) {
+                  // Fallback for non-base64 URLs if upload fails
                   mediaUrls.push(mediaUrl);
               }
           }
+
 
           const post = await prisma.post.create({
             data: {
