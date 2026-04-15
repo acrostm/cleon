@@ -10,6 +10,7 @@ import { AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { HeaderSpotifyPlayer } from '@/components/HeaderSpotifyPlayer';
 import { Separator } from '@/components/ui/separator';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -228,6 +229,8 @@ export default function Home() {
         onSubmit={handleSubmit} 
         isSubmitting={isSubmitting} 
       />
+
+      <ScrollToTop />
 
       <AnimatePresence>
         {selectedPost && (

@@ -37,12 +37,14 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true, message: 'Post and associated media deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API Error] Failed to delete post:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete post';
     return NextResponse.json({ 
-      error: error.message || 'Failed to delete post',
-      details: process.env.NODE_ENV !== 'production' ? error.stack : undefined 
+      error: errorMessage,
+      details: process.env.NODE_ENV !== 'production' && error instanceof Error ? error.stack : undefined 
     }, { status: 500 });
   }
 }
+
 

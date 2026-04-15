@@ -10,7 +10,24 @@ export function extractUrl(text: string): string | null {
   // Match http:// or https:// followed by any non-whitespace characters
   const urlRegex = /(https?:\/\/[^\s]+)/;
   const match = text.match(urlRegex);
-  return match ? match[1] : null;
+  return match ? normalizeUrl(match[1]) : null;
+}
+
+/**
+ * Normalizes specific platform URLs to their canonical equivalents.
+ * For example, translates Jinshi download/forward links to flash detail links.
+ */
+export function normalizeUrl(urlString: string): string {
+  if (!urlString) return urlString;
+  let normalized = urlString;
+  
+  // Jinshi Data: dl.jin10.com/f/ID -> flash.jin10.com/detail/ID
+  const jinshiMatch = normalized.match(/^https?:\/\/dl\.jin10\.com\/f\/(\d+)/);
+  if (jinshiMatch) {
+    normalized = `https://flash.jin10.com/detail/${jinshiMatch[1]}`;
+  }
+  
+  return normalized;
 }
 
 /**
