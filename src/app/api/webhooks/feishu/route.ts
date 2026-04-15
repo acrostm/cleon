@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
-import { extractUrl, validateUrl } from '@/lib/utils/url';
+import { extractUrl, validateUrl, normalizeUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 import jsQR from 'jsqr';
 import { Jimp } from 'jimp';
@@ -168,7 +168,7 @@ export async function POST(req: Request) {
             const imageKey = contentObj.image_key;
             if (imageKey) {
               const result = await extractUrlFromImage(message.message_id, imageKey);
-              rawUrl = result.url;
+              rawUrl = result.url ? normalizeUrl(result.url) : null;
               sharedBase64Image = result.base64Image;
             }
           }
