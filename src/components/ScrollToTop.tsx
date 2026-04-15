@@ -36,7 +36,7 @@ export function ScrollToTop() {
           exit={{ opacity: 0, y: 20, scale: 0.8 }}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
-          className="fixed bottom-32 right-8 z-50"
+          className="fixed bottom-36 right-8 z-50"
         >
           <button
             onClick={scrollToTop}
