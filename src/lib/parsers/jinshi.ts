@@ -52,17 +52,28 @@ export class JinshiParser implements ContentParser {
 
       // 2. Fallback to specific Jinshi detail page selectors
       if (!title) {
-        title = $('.detail-title').text().trim() || 
+        title = $('.content-title').text().trim() || 
+                $('.detail-title').text().trim() || 
                 $('.jin-flash-item-container .title').text().trim() ||
                 $('.news-detail-title').text().trim();
+        
+        // Clean up title if it contains source in parentheses
+        title = title.replace(/\uff08.*\uff09$/, '').trim();
       }
 
       if (!contentText) {
-        contentText = $('.detail-content').text().trim() || 
+        contentText = $('.detail-content .content-title').text().trim() ||
+                      $('.detail-content').text().trim() || 
                       $('.J_flash_text').text().trim() || 
                       $('.flash-text').text().trim() || 
                       $('.jin-flash-item-container .content').text().trim() ||
                       $('.news-detail-content').text().trim();
+        
+        // Remove trailing UI elements if they exist
+        contentText = contentText.replace(/\s*订阅美国VS伊朗动态.*$/, '').trim();
+        contentText = contentText.replace(/\s*跟踪中东局势动态.*$/, '').trim();
+        // Remove date if it starts with it (sometimes extracted from .detail-content)
+        contentText = contentText.replace(/^\d{4}-\d{2}-\d{2}\s*\u5468.\s*\d{2}:\d{2}:\d{2}\s*/, '').trim();
       }
 
       // 3. Robust Meta tags (very reliable for social sharing/SEO)
@@ -70,7 +81,12 @@ export class JinshiParser implements ContentParser {
           title = $('meta[property="og:title"]').attr('content') || 
                   $('meta[name="twitter:title"]').attr('content') ||
                   $('h1').first().text().trim() ||
-                  $('title').text().replace('-金十数据', '').trim();
+                  $('title').text().trim();
+      }
+      
+      // Always clean up title from Jinshi suffix
+      if (title) {
+          title = title.replace(/\s*-\s*金十数据$/, '').replace(/^【金十数据】/, '').trim();
       }
 
       if (!contentText || contentText === title) {
@@ -78,6 +94,7 @@ export class JinshiParser implements ContentParser {
                         $('meta[name="description"]').attr('content') || 
                         contentText;
       }
+
 
       // 4. Final Generic HTML Fallback
       if (!contentText || contentText.length < 5) {
@@ -96,14 +113,15 @@ export class JinshiParser implements ContentParser {
       if (mediaUrls.length === 0) {
           $('.detail-content img, .flash-item img, .news-detail-content img').each((_, img) => {
               const src = $(img).attr('src');
-              if (src && !src.includes('favicon')) mediaUrls.push(src);
+              if (src && !src.includes('favicon') && !src.includes('logo')) mediaUrls.push(src);
           });
           
           if (mediaUrls.length === 0) {
               const ogImage = $('meta[property="og:image"]').attr('content');
-              if (ogImage) mediaUrls.push(ogImage);
+              if (ogImage && !ogImage.includes('logo')) mediaUrls.push(ogImage);
           }
       }
+
 
       // Final cleanup
       if (!contentText) {
@@ -111,7 +129,7 @@ export class JinshiParser implements ContentParser {
       }
 
       return {
-        platform: 'JINSHI' as any,
+        platform: 'JINSHI',
         authorName: '金十数据',
         avatarUrl: 'https://www.jin10.com/favicon.ico',
         title: title || '金十快讯',
@@ -122,5 +140,6 @@ export class JinshiParser implements ContentParser {
       console.error("[Jinshi Parser Error]:", error);
       throw new Error("Jinshi Data scraping failed. The link may be invalid or the content is protected.");
     }
+
   }
 }
