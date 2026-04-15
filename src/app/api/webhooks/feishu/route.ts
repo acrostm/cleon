@@ -208,8 +208,8 @@ export async function POST(req: Request) {
             return;
           }
 
-          // For Jinshi, attach the scanned image if available
-          if (parsedData.platform === 'JINSHI' && sharedBase64Image) {
+          // For Jinshi or any scanned image, add it to the media pool
+          if (sharedBase64Image) {
             parsedData.mediaUrls = [sharedBase64Image, ...(parsedData.mediaUrls || [])];
           }
 
