@@ -11,7 +11,6 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { HeaderSpotifyPlayer } from '@/components/HeaderSpotifyPlayer';
 import { Separator } from '@/components/ui/separator';
 import { ScrollToTop } from '@/components/ScrollToTop';
-import { CrossPlatformClipboard } from '@/components/CrossPlatformClipboard';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -197,10 +196,6 @@ export default function Home() {
               <ThemeToggle />
            </div>
         </header>
-
-        <section className="mb-12 md:mb-16">
-          <CrossPlatformClipboard />
-        </section>
 
         <div className="flex-1">
           <Timeline 
