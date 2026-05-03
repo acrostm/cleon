@@ -5,9 +5,7 @@ import {
   PASTE_TTL_SECONDS,
   assertPasteRateLimit,
   clearPastes,
-  createPasteSpace,
   getRecentPastes,
-  normalizePasteSpace,
   savePaste,
 } from '@/lib/paste-bin';
 
@@ -18,11 +16,6 @@ function getClientIp(req: Request) {
   return forwardedFor?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'local';
 }
 
-function parseSpace(req: Request) {
-  const { searchParams } = new URL(req.url);
-  return normalizePasteSpace(searchParams.get('space'));
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
@@ -31,25 +24,12 @@ function getErrorStack(error: unknown) {
   return error instanceof Error ? error.stack : undefined;
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const space = parseSpace(req);
-
-    if (!space) {
-      return NextResponse.json({
-        success: true,
-        space: createPasteSpace(),
-        data: [],
-        limit: PASTE_LIMIT,
-        ttlSeconds: PASTE_TTL_SECONDS,
-      });
-    }
-
-    const data = await getRecentPastes(space);
+    const data = await getRecentPastes();
 
     return NextResponse.json({
       success: true,
-      space,
       data,
       limit: PASTE_LIMIT,
       ttlSeconds: PASTE_TTL_SECONDS,
@@ -67,15 +47,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const space = normalizePasteSpace(typeof body.space === 'string' ? body.space : null);
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     const source = typeof body.source === 'string' && body.source.trim()
       ? body.source.trim().slice(0, 40)
       : 'web';
-
-    if (!space) {
-      return NextResponse.json({ success: false, error: 'Paste space is invalid' }, { status: 400 });
-    }
 
     if (!content) {
       return NextResponse.json({ success: false, error: 'Paste content is required' }, { status: 400 });
@@ -88,8 +63,8 @@ export async function POST(req: Request) {
       }, { status: 413 });
     }
 
-    await assertPasteRateLimit(space, getClientIp(req));
-    const item = await savePaste(space, content, source);
+    await assertPasteRateLimit(getClientIp(req));
+    const item = await savePaste(content, source);
 
     return NextResponse.json({
       success: true,
@@ -109,15 +84,9 @@ export async function POST(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE() {
   try {
-    const space = parseSpace(req);
-
-    if (!space) {
-      return NextResponse.json({ success: false, error: 'Paste space is invalid' }, { status: 400 });
-    }
-
-    await clearPastes(space);
+    await clearPastes();
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
