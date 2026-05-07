@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { Settings, User, Plus, X, Sparkles, LayoutGrid } from 'lucide-react';
+import { Bell, ClipboardCheck, Settings, Plus, X, Sparkles, LayoutGrid } from 'lucide-react';
 import { SubmitUrlForm } from './SubmitUrlForm';
 import {
   Dialog,
@@ -109,12 +109,44 @@ export function FloatingActionMenu({ onSubmit, isSubmitting }: Props) {
               </DialogContent>
             </Dialog>
 
-            {/* 2. Settings (Wheel) */}
+            {/* 2. Universal Paste */}
+            <motion.a
+              href="/clipboard"
+              custom={1}
+              variants={itemVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className={`${liquidGlassClass} w-12 h-12 absolute inset-0`}
+              title="Universal Paste"
+              aria-label="Universal Paste"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <ClipboardCheck className="w-5 h-5 text-foreground/80" />
+            </motion.a>
+
+            {/* 3. Bark Notifications */}
+            <motion.a
+              href="/admin/bark"
+              custom={0}
+              variants={itemVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className={`${liquidGlassClass} w-12 h-12 absolute inset-0`}
+              title="Bark Notifications"
+              aria-label="Bark Notifications"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Bell className="w-5 h-5 text-foreground/80" />
+            </motion.a>
+
+            {/* 4. Settings (Wheel) */}
             <DropdownMenu>
               <DropdownMenuTrigger 
                 render={
                   <motion.button
-                    custom={1}
+                    custom={3}
                     variants={itemVariants}
                     initial="hidden"
                     animate="visible"
@@ -131,25 +163,15 @@ export function FloatingActionMenu({ onSubmit, isSubmitting }: Props) {
                   <Sparkles className="w-4 h-4 mr-2 text-indigo-500" />
                   <span className="font-semibold">AI Insights</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-xl py-3 cursor-pointer focus:bg-indigo-500/10 opacity-50">
-                  <User className="w-4 h-4 mr-2" />
-                  <span className="font-semibold">Profile Settings</span>
+                <DropdownMenuItem
+                  render={<a href="/admin/bark" />}
+                  className="rounded-xl py-3 cursor-pointer focus:bg-indigo-500/10"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  <span className="font-semibold">Bark Settings</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* 3. User Profile */}
-            <motion.button
-              custom={0}
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-              className={`${liquidGlassClass} w-12 h-12 absolute inset-0`}
-              title="Profile"
-            >
-              <User className="w-5 h-5 text-foreground/80" />
-            </motion.button>
           </>
         )}
       </AnimatePresence>
