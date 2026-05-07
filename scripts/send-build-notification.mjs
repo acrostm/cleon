@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+
+await import("dotenv/config").catch(() => undefined);
 
 const args = process.argv.slice(2);
 const buildStatus = args[0] || "success";
