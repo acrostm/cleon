@@ -38,3 +38,17 @@ model UrlSubmission {
   @@index([createdAt])
   @@index([url])
 }
+
+model BarkConfig {
+  id              String   @id
+  name            String
+  url             String   @db.Text
+  enabled         Boolean  @default(true)
+  defaultGroup    String   @default("Cleon")
+  defaultCategory String   @default("通知")
+  defaultIcon     String   @db.Text
+  defaultSound    String   @default("default")
+  description     String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
