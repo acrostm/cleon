@@ -15,7 +15,7 @@ sync_prisma_schema() {
   case "$mode" in
     push)
       echo "Syncing database schema with prisma db push..."
-      pnpm exec prisma db push --skip-generate
+      pnpm exec prisma db push
       ;;
     migrate)
       echo "Applying database migrations with prisma migrate deploy..."
