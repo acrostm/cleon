@@ -5,6 +5,7 @@ import { Bell, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { BarkConfigItem } from "@/lib/bark-config";
+import { HomeReturnButton } from "@/components/HomeReturnButton";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -166,30 +167,36 @@ export function BarkConfigPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 md:py-12">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Admin</p>
-            <h1 className="text-2xl font-semibold tracking-normal">
-              Bark 通知配置
-            </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              管理 Cleon 的 Bark 端点，构建完成和内容采集成功后会使用启用的配置发送通知。
-            </p>
+        <header className="flex flex-col gap-5">
+          <div className="flex items-center justify-start">
+            <HomeReturnButton />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={testNotification}
-              disabled={testing}
-            >
-              <Bell />
-              测试通知
-            </Button>
-            <Button type="button" onClick={() => openDialog()}>
-              <Plus />
-              添加配置
-            </Button>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Admin</p>
+              <h1 className="text-2xl font-semibold tracking-normal">
+                Bark 通知配置
+              </h1>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                管理 Cleon 的 Bark 端点，构建完成和内容采集成功后会使用启用的配置发送通知。
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={testNotification}
+                disabled={testing}
+              >
+                <Bell />
+                测试通知
+              </Button>
+              <Button type="button" onClick={() => openDialog()}>
+                <Plus />
+                添加配置
+              </Button>
+            </div>
           </div>
         </header>
 
