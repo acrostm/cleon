@@ -7,6 +7,7 @@ import { Jimp } from 'jimp';
 import { uploadMediaToR2 } from '@/lib/r2';
 import { isEmbedUrl } from '@/lib/utils';
 import crypto from 'crypto';
+import { notifyNewPostCreated } from '@/lib/notification';
 
 // In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
 // This works per-instance; combined with 'after()', it virtually eliminates duplicate processing.
@@ -259,9 +260,15 @@ export async function POST(req: Request) {
           });
 
           const shareUrl = `${baseUrl}/#${post.id}`;
+          try {
+            await notifyNewPostCreated(post.platform, post.title, 'FEISHU', shareUrl);
+          } catch (notificationError) {
+            console.error('Failed to send new post Bark notification:', notificationError);
+          }
+
           await replyToMessage(message.message_id, `✅ 已成功采集！\n预览：${shareUrl}\n解析地址：${rawUrl}`);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Background processing error:', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           await prisma.urlSubmission.create({

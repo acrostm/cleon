@@ -5,6 +5,13 @@ import prisma from '@/lib/prisma';
 import { isEmbedUrl } from '@/lib/utils';
 import { uploadMediaToR2 } from '@/lib/r2';
 import crypto from 'crypto';
+import { notifyNewPostCreated } from '@/lib/notification';
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : 'Unknown error';
+
+const getErrorStack = (error: unknown) =>
+  error instanceof Error ? error.stack : undefined;
 
 export async function POST(req: Request) {
   let url = 'unknown';
@@ -68,24 +75,37 @@ export async function POST(req: Request) {
         data: { url, source: 'WEB', status: 'SUCCESS', postId: post.id }
     });
 
+    try {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
+      await notifyNewPostCreated(
+        post.platform,
+        post.title,
+        'WEB',
+        `${siteUrl}/#${post.id}`,
+      );
+    } catch (notificationError) {
+      console.error('Failed to send new post Bark notification:', notificationError);
+    }
+
     return NextResponse.json({ success: true, data: post }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
     console.error('------- [API CRASH] Error parsing feed URL -------');
     console.error(error);
+    const errorMessage = getErrorMessage(error);
 
     // Log failure
     try {
         await prisma.urlSubmission.create({
-            data: { url, source: 'WEB', status: 'FAILED', errorMessage: error.message }
+            data: { url, source: 'WEB', status: 'FAILED', errorMessage }
         });
     } catch (e) {
         console.error('Failed to log URL submission failure:', e);
     }
 
     return NextResponse.json({
-      error: error.message || 'Failed to parse URL',
+      error: errorMessage || 'Failed to parse URL',
 
-      details: process.env.NODE_ENV !== 'production' ? error.stack : undefined 
+      details: process.env.NODE_ENV !== 'production' ? getErrorStack(error) : undefined 
     }, { status: 500 });
   }
 }
@@ -138,7 +158,7 @@ export async function GET(req: Request) {
             nextCursor,
             hasMore
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching timeline:', error);
         return NextResponse.json({ error: 'Failed to fetch timeline' }, { status: 500 });
     }
