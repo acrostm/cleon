@@ -27,6 +27,33 @@ type StoredBarkConfigItem = Omit<
   updatedAt: Date;
 };
 
+const BARK_CONFIG_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS "BarkConfig" (
+  "id" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "url" TEXT NOT NULL,
+  "enabled" BOOLEAN NOT NULL DEFAULT true,
+  "defaultGroup" TEXT NOT NULL DEFAULT 'Cleon',
+  "defaultCategory" TEXT NOT NULL DEFAULT '通知',
+  "defaultIcon" TEXT NOT NULL,
+  "defaultSound" TEXT NOT NULL DEFAULT 'default',
+  "description" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "BarkConfig_pkey" PRIMARY KEY ("id")
+);
+`;
+
+const isMissingBarkConfigTable = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === "P2021";
+
+async function ensureBarkConfigTable() {
+  await prisma.$executeRawUnsafe(BARK_CONFIG_TABLE_SQL);
+}
+
 const normalizeBarkConfigItem = (
   config: StoredBarkConfigItem,
 ): BarkConfigItem => ({
@@ -50,9 +77,18 @@ const toBarkConfigUpdate = (
 });
 
 export async function readBarkConfig(): Promise<BarkConfigFile> {
-  const configs = await prisma.barkConfig.findMany({
-    orderBy: { createdAt: "asc" },
-  });
+  let configs: StoredBarkConfigItem[];
+
+  try {
+    configs = await prisma.barkConfig.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+  } catch (error) {
+    if (!isMissingBarkConfigTable(error)) throw error;
+
+    await ensureBarkConfigTable();
+    configs = [];
+  }
 
   return {
     configs: configs.map(normalizeBarkConfigItem),
@@ -67,6 +103,7 @@ export async function getEnabledBarkConfigs(): Promise<BarkConfigItem[]> {
 export async function getBarkConfigById(
   id: string,
 ): Promise<BarkConfigItem | null> {
+  await ensureBarkConfigTable();
   const config = await prisma.barkConfig.findUnique({
     where: { id },
   });
@@ -77,6 +114,7 @@ export async function getBarkConfigById(
 export async function addBarkConfig(
   newConfig: Omit<BarkConfigItem, "id" | "createdAt" | "updatedAt">,
 ): Promise<BarkConfigItem> {
+  await ensureBarkConfigTable();
   const id = `bark_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const configItem = await prisma.barkConfig.create({
     data: {
@@ -106,6 +144,7 @@ export async function updateBarkConfig(
 
 export async function deleteBarkConfig(id: string): Promise<boolean> {
   try {
+    await ensureBarkConfigTable();
     await prisma.barkConfig.delete({
       where: { id },
     });

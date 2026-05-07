@@ -9,12 +9,38 @@ IS_VERCEL="${VERCEL:-false}"
 echo "Generating Prisma Client..."
 pnpm exec prisma generate
 
+sync_prisma_schema() {
+  local mode="${CLEON_PRISMA_SCHEMA_SYNC:-push}"
+
+  case "$mode" in
+    push)
+      echo "Syncing database schema with prisma db push..."
+      pnpm exec prisma db push
+      ;;
+    migrate)
+      echo "Applying database migrations with prisma migrate deploy..."
+      pnpm exec prisma migrate deploy
+      ;;
+    skip)
+      echo "Skipping database schema sync because CLEON_PRISMA_SCHEMA_SYNC=skip"
+      ;;
+    *)
+      echo "Unsupported CLEON_PRISMA_SCHEMA_SYNC value: $mode"
+      exit 1
+      ;;
+  esac
+}
+
 if [ "${VERCEL_ENV:-}" = "production" ]; then
-  echo "Applying production database migrations..."
-  pnpm exec prisma migrate deploy
-elif [ "${RUN_PRISMA_MIGRATE_ON_PREVIEW:-false}" = "true" ]; then
-  echo "Applying preview database migrations..."
-  pnpm exec prisma migrate deploy
+  echo "Preparing production database schema..."
+  sync_prisma_schema
+elif [ "${VERCEL_ENV:-}" = "preview" ]; then
+  if [ "${RUN_PRISMA_SYNC_ON_PREVIEW:-true}" = "true" ]; then
+    echo "Preparing preview database schema..."
+    sync_prisma_schema
+  else
+    echo "Skipping preview database schema sync"
+  fi
 else
   echo "Skipping database migrations for Vercel environment: ${VERCEL_ENV:-local}"
 fi
