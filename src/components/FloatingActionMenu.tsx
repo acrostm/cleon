@@ -1,16 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState, type ComponentType, type CSSProperties } from 'react';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import {
   Bell,
-  ChevronRight,
   ClipboardCheck,
-  LayoutGrid,
+  Link2,
   Plus,
-  Sparkles,
-  X,
 } from 'lucide-react';
 import { SubmitUrlForm } from './SubmitUrlForm';
 import {
@@ -26,48 +23,55 @@ interface Props {
   isSubmitting: boolean;
 }
 
-const panelVariants: Variants = {
-  hidden: {
+type OrbitAction = {
+  key: string;
+  label: string;
+  shortLabel: string;
+  icon: ComponentType<{ className?: string }>;
+  position: { x: number; y: number; rotate: number };
+  href?: string;
+  onSelect?: () => void;
+};
+
+const orbitActionVariants: Variants = {
+  hidden: ({ position }: { position: OrbitAction['position'] }) => ({
     opacity: 0,
-    y: 18,
-    scale: 0.96,
+    x: -position.x,
+    y: position.y,
+    scale: 0.48,
+    rotate: -112,
     filter: 'blur(8px)',
-    transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] },
-  },
-  visible: {
+    transition: {
+      duration: 0.16,
+      ease: [0.4, 0, 1, 1],
+    },
+  }),
+  visible: ({ position, index }: { position: OrbitAction['position']; index: number }) => ({
     opacity: 1,
+    x: 0,
     y: 0,
     scale: 1,
+    rotate: position.rotate,
     filter: 'blur(0px)',
     transition: {
       type: 'spring',
-      stiffness: 420,
-      damping: 34,
-      mass: 0.8,
-      staggerChildren: 0.055,
-      delayChildren: 0.04,
+      stiffness: 520,
+      damping: 32,
+      mass: 0.72,
+      delay: index * 0.045,
     },
-  },
+  }),
 };
 
-const rowVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 500, damping: 36 },
-  },
-};
+const actionButtonClass =
+  'group pointer-events-auto relative flex size-14 touch-pan-y items-center justify-center overflow-visible rounded-full border border-slate-950/28 bg-white/[0.74] text-slate-950 shadow-[0_16px_40px_rgba(15,23,42,0.24),inset_0_1px_0_rgba(255,255,255,0.92),inset_0_-12px_24px_rgba(15,23,42,0.08)] outline-none backdrop-blur-[5px] backdrop-saturate-150 transition duration-300 before:pointer-events-none before:absolute before:inset-[1px] before:rounded-full before:bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.76),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.34),rgba(255,255,255,0.10)_46%,rgba(15,23,42,0.09))] before:opacity-90 after:pointer-events-none after:absolute after:inset-[7px] after:rounded-full after:border after:border-slate-950/14 hover:-translate-y-0.5 hover:border-slate-950/36 hover:bg-white/[0.84] hover:text-slate-950 hover:shadow-[0_20px_50px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-12px_24px_rgba(15,23,42,0.10)] focus-visible:ring-3 focus-visible:ring-slate-950/22 dark:border-white/20 dark:bg-white/[0.055] dark:text-white/92 dark:shadow-[0_14px_38px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-12px_26px_rgba(255,255,255,0.025)] dark:before:bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.22),transparent_31%),linear-gradient(145deg,rgba(255,255,255,0.09),rgba(255,255,255,0.018)_46%,rgba(255,255,255,0.045))] dark:after:border-white/12 dark:hover:border-white/50 dark:hover:bg-white/[0.085] dark:hover:text-white dark:focus-visible:ring-white/30 sm:size-[3.75rem]';
 
-const iconFrameClass =
-  'flex size-11 shrink-0 items-center justify-center rounded-2xl border shadow-sm transition duration-300 group-hover/action:scale-105';
-
-const actionRowClass =
-  'group/action flex w-full items-center gap-3 rounded-2xl border border-white/70 bg-white/80 p-3 text-left shadow-[0_10px_28px_rgba(15,23,42,0.08)] outline-none transition duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:shadow-[0_16px_38px_rgba(15,23,42,0.13)] focus-visible:ring-3 focus-visible:ring-slate-400/30 dark:border-white/10 dark:bg-slate-900/80 dark:shadow-[0_14px_34px_rgba(0,0,0,0.32)] dark:hover:border-white/20 dark:hover:bg-slate-900';
+const MotionLink = motion.create(Link);
 
 export function FloatingActionMenu({ onSubmit, isSubmitting }: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
   const handleUrlSubmit = async (url: string) => {
     const success = await onSubmit(url);
@@ -79,160 +83,188 @@ export function FloatingActionMenu({ onSubmit, isSubmitting }: Props) {
 
   const openCollectDialog = () => {
     setIsMenuOpen(false);
+    setHoveredAction(null);
     setIsDialogOpen(true);
   };
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const closeOnScroll = () => {
+      setIsMenuOpen(false);
+      setHoveredAction(null);
+    };
+
+    window.addEventListener('scroll', closeOnScroll, { passive: true });
+    return () => window.removeEventListener('scroll', closeOnScroll);
+  }, [isMenuOpen]);
+
+  const actions: OrbitAction[] = [
+    {
+      key: 'collect',
+      label: 'Collect URL',
+      shortLabel: '收集',
+      icon: Link2,
+      position: { x: -104, y: 14, rotate: 0 },
+      onSelect: openCollectDialog,
+    },
+    {
+      key: 'clipboard',
+      label: 'Universal Paste',
+      shortLabel: '剪贴板',
+      icon: ClipboardCheck,
+      position: { x: -82, y: 82, rotate: 0 },
+      href: '/clipboard',
+    },
+    {
+      key: 'bark',
+      label: 'Bark Console',
+      shortLabel: 'Bark',
+      icon: Bell,
+      position: { x: -14, y: 104, rotate: 0 },
+      href: '/admin/bark',
+    },
+  ];
 
   return (
     <>
       {!isDialogOpen && (
-        <div className="fixed bottom-5 right-4 z-[60] flex flex-col items-end gap-3 sm:bottom-7 sm:right-7">
+        <div className="pointer-events-none fixed bottom-5 right-4 z-[100] size-16 [--fab-action-radius:1.75rem] sm:bottom-7 sm:right-7 sm:size-[4.5rem] sm:[--fab-action-radius:1.875rem]">
           <AnimatePresence>
             {isMenuOpen && (
-              <motion.div
-                key="action-command-panel"
-                id="action-command-panel"
-                variants={panelVariants}
-                initial="hidden"
-                animate="visible"
-                exit="hidden"
-                className="relative w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-[1.75rem] border border-white/70 bg-slate-50/86 shadow-[0_28px_80px_rgba(15,23,42,0.22)] ring-1 ring-slate-950/5 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/84 dark:shadow-[0_28px_90px_rgba(0,0,0,0.55)] dark:ring-white/10"
-              >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(14,165,233,0.20),transparent_32%),radial-gradient(circle_at_92%_16%,rgba(245,158,11,0.16),transparent_30%),linear-gradient(145deg,rgba(255,255,255,0.72),rgba(255,255,255,0.18))] dark:bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,238,0.14),transparent_32%),radial-gradient(circle_at_92%_16%,rgba(250,204,21,0.12),transparent_30%),linear-gradient(145deg,rgba(15,23,42,0.82),rgba(2,6,23,0.46))]" />
-                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-80 dark:via-white/40" />
+              <>
+                <motion.div
+                  key="speed-dial-actions"
+                  id="action-speed-dial-menu"
+                  role="menu"
+                  aria-label="Cleon quick actions"
+                  className="absolute inset-0 z-20 overflow-visible"
+                >
+                  {actions.map((action, index) => {
+                    const Icon = action.icon;
+                    const showLabel = hoveredAction === action.key;
+                    const button = (
+                      <>
+                        <Icon className="relative z-10 size-5 stroke-[2.35] text-slate-950 dark:text-white sm:size-6" />
+                        <AnimatePresence>
+                          {showLabel && (
+                            <motion.span
+                              initial={{ opacity: 0, y: 4, scale: 0.94 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 4, scale: 0.94 }}
+                              transition={{ duration: 0.16, ease: [0.2, 0.8, 0.2, 1] }}
+                              className="pointer-events-none absolute left-1/2 top-[-2.15rem] z-20 flex -translate-x-1/2 items-center rounded-full border border-white/28 bg-black/[0.18] px-2.5 py-1.5 text-center shadow-[0_10px_24px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-[3px] backdrop-saturate-150 dark:border-white/16 dark:bg-black/[0.20] sm:top-[-2.3rem] sm:px-3"
+                            >
+                              <span className="whitespace-nowrap text-xs font-black leading-none text-white">
+                                {action.shortLabel}
+                              </span>
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </>
+                    );
 
-                <div className="relative p-3">
-                  <motion.div
-                    variants={rowVariants}
-                    className="mb-2 flex items-center justify-between px-2 pt-1"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-8 items-center justify-center rounded-full bg-slate-950 text-white shadow-lg shadow-slate-950/20 dark:bg-white dark:text-slate-950">
-                        <Sparkles className="size-4" />
-                      </span>
-                      <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                        Command
-                      </span>
-                    </div>
-                    <span className="rounded-full border border-slate-200/80 bg-white/70 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-400">
-                      3 tools
-                    </span>
-                  </motion.div>
+                    const motionProps = {
+                      custom: { position: action.position, index },
+                      variants: orbitActionVariants,
+                      initial: 'hidden',
+                      animate: 'visible',
+                      exit: 'hidden',
+                    } as const;
 
-                  <div className="grid gap-2">
-                    <motion.button
-                      variants={rowVariants}
-                      type="button"
-                      onClick={openCollectDialog}
-                      className={actionRowClass}
-                    >
-                      <span
-                        className={`${iconFrameClass} border-sky-200/80 bg-sky-50 text-sky-700 shadow-sky-500/10 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200`}
+                    const positionStyle = {
+                      left: `calc(50% + ${action.position.x}px - var(--fab-action-radius))`,
+                      top: `calc(50% - ${action.position.y}px - var(--fab-action-radius))`,
+                    } satisfies CSSProperties;
+
+                    const interactiveMotionProps = {
+                      whileHover: { y: -2, scale: 1.035 },
+                      whileTap: { scale: 0.95 },
+                      transition: { type: 'spring', stiffness: 520, damping: 34 },
+                    } as const;
+
+                    const actionNode = action.href ? (
+                      <MotionLink
+                        href={action.href}
+                        data-fab-action={action.key}
+                        role="menuitem"
+                        aria-label={action.label}
+                        onPointerEnter={() => setHoveredAction(action.key)}
+                        onPointerLeave={() => setHoveredAction(null)}
+                        onMouseEnter={() => setHoveredAction(action.key)}
+                        onMouseLeave={() => setHoveredAction(null)}
+                        onFocus={() => setHoveredAction(action.key)}
+                        onBlur={() => setHoveredAction(null)}
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setHoveredAction(null);
+                        }}
+                        className={actionButtonClass}
+                        {...interactiveMotionProps}
                       >
-                        <Plus className="size-5" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-black text-slate-950 dark:text-white">
-                          Collect URL
-                        </span>
-                        <span className="mt-0.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                          Timeline intake
-                        </span>
-                      </span>
-                      <ChevronRight className="size-4 text-slate-400 transition duration-300 group-hover/action:translate-x-0.5 group-hover/action:text-slate-700 dark:group-hover/action:text-slate-200" />
-                    </motion.button>
-
-                    <motion.div variants={rowVariants}>
-                      <Link
-                        href="/clipboard"
-                        onClick={() => setIsMenuOpen(false)}
-                        className={actionRowClass}
+                        {button}
+                      </MotionLink>
+                    ) : (
+                      <motion.button
+                        type="button"
+                        data-fab-action={action.key}
+                        role="menuitem"
+                        aria-label={action.label}
+                        onPointerEnter={() => setHoveredAction(action.key)}
+                        onPointerLeave={() => setHoveredAction(null)}
+                        onMouseEnter={() => setHoveredAction(action.key)}
+                        onMouseLeave={() => setHoveredAction(null)}
+                        onFocus={() => setHoveredAction(action.key)}
+                        onBlur={() => setHoveredAction(null)}
+                        onClick={action.onSelect}
+                        className={actionButtonClass}
+                        {...interactiveMotionProps}
                       >
-                        <span
-                          className={`${iconFrameClass} border-emerald-200/80 bg-emerald-50 text-emerald-700 shadow-emerald-500/10 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200`}
-                        >
-                          <ClipboardCheck className="size-5" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-black text-slate-950 dark:text-white">
-                            Universal Paste
-                          </span>
-                          <span className="mt-0.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Cross-device clipboard
-                          </span>
-                        </span>
-                        <ChevronRight className="size-4 text-slate-400 transition duration-300 group-hover/action:translate-x-0.5 group-hover/action:text-slate-700 dark:group-hover/action:text-slate-200" />
-                      </Link>
-                    </motion.div>
+                        {button}
+                      </motion.button>
+                    );
 
-                    <motion.div variants={rowVariants}>
-                      <Link
-                        href="/admin/bark"
-                        onClick={() => setIsMenuOpen(false)}
-                        className={actionRowClass}
+                    return (
+                      <motion.div
+                        key={action.key}
+                        className="absolute"
+                        style={positionStyle}
+                        {...motionProps}
                       >
-                        <span
-                          className={`${iconFrameClass} border-amber-200/80 bg-amber-50 text-amber-700 shadow-amber-500/10 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-200`}
-                        >
-                          <Bell className="size-5" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-black text-slate-950 dark:text-white">
-                            Bark Console
-                          </span>
-                          <span className="mt-0.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                            Notification endpoints
-                          </span>
-                        </span>
-                        <ChevronRight className="size-4 text-slate-400 transition duration-300 group-hover/action:translate-x-0.5 group-hover/action:text-slate-700 dark:group-hover/action:text-slate-200" />
-                      </Link>
-                    </motion.div>
-                  </div>
-                </div>
-              </motion.div>
+                        {actionNode}
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
 
           <motion.button
             type="button"
+            data-fab-trigger="true"
+            aria-haspopup="menu"
             aria-expanded={isMenuOpen}
-            aria-controls="action-command-panel"
+            aria-controls="action-speed-dial-menu"
             aria-label={isMenuOpen ? 'Close action menu' : 'Open action menu'}
-            title={isMenuOpen ? 'Close action menu' : 'Open action menu'}
-            onClick={() => setIsMenuOpen((open) => !open)}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.97 }}
-            className="group relative flex h-16 min-w-16 items-center justify-center gap-3 overflow-hidden rounded-[2rem] border border-white/70 bg-slate-950 px-4 text-white shadow-[0_22px_60px_rgba(15,23,42,0.26)] outline-none transition duration-300 hover:shadow-[0_26px_70px_rgba(15,23,42,0.34)] focus-visible:ring-3 focus-visible:ring-slate-400/40 dark:border-white/12 dark:bg-white dark:text-slate-950 dark:shadow-[0_24px_70px_rgba(0,0,0,0.55)] sm:min-w-[11.5rem]"
+            onClick={() => {
+              setIsMenuOpen((open) => !open);
+              setHoveredAction(null);
+            }}
+            whileHover={{ y: -2, scale: 1.02 }}
+            whileTap={{ scale: 0.96 }}
+            className="group pointer-events-auto absolute inset-0 z-30 flex touch-pan-y items-center justify-center overflow-hidden rounded-full border border-slate-950/30 bg-white/[0.78] text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.26),inset_0_1px_0_rgba(255,255,255,0.94),inset_0_-16px_34px_rgba(15,23,42,0.09)] outline-none backdrop-blur-[5px] backdrop-saturate-150 transition duration-300 hover:border-slate-950/40 hover:bg-white/[0.88] hover:text-slate-950 hover:shadow-[0_24px_66px_rgba(15,23,42,0.32),inset_0_1px_0_rgba(255,255,255,0.96),inset_0_-16px_34px_rgba(15,23,42,0.11)] focus-visible:ring-3 focus-visible:ring-slate-950/22 dark:border-white/20 dark:bg-white/[0.06] dark:text-white/95 dark:shadow-[0_18px_48px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-16px_34px_rgba(255,255,255,0.035)] dark:hover:bg-white/[0.11] dark:hover:text-white dark:hover:shadow-[0_24px_62px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.44),inset_0_-16px_34px_rgba(255,255,255,0.055)] dark:focus-visible:ring-white/30"
           >
-            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(125,211,252,0.38),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(251,191,36,0.28),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.16),transparent_46%)] opacity-85 transition duration-500 group-hover:opacity-100 dark:bg-[radial-gradient(circle_at_22%_12%,rgba(14,165,233,0.18),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(245,158,11,0.20),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.10),transparent_46%)]" />
-            <span className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-slate-950/30" />
-
-            <span className="relative flex size-10 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg shadow-black/15 dark:bg-slate-950 dark:text-white dark:shadow-slate-950/15">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={isMenuOpen ? 'close' : 'open'}
-                  initial={{ opacity: 0, rotate: -45, scale: 0.82 }}
-                  animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                  exit={{ opacity: 0, rotate: 45, scale: 0.82 }}
-                  transition={{ type: 'spring', stiffness: 520, damping: 34 }}
-                  className="flex"
-                >
-                  {isMenuOpen ? (
-                    <X className="size-5" />
-                  ) : (
-                    <LayoutGrid className="size-5" />
-                  )}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-
-            <span className="relative hidden min-w-0 flex-col items-start sm:flex">
-              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55 dark:text-slate-950/50">
-                Cleon
-              </span>
-              <span className="text-sm font-black leading-5 tracking-normal text-white dark:text-slate-950">
-                Actions
-              </span>
-            </span>
+            <span className="absolute inset-0 bg-[radial-gradient(circle_at_28%_18%,rgba(255,255,255,0.78),transparent_32%),linear-gradient(145deg,rgba(255,255,255,0.36),rgba(255,255,255,0.12)_46%,rgba(15,23,42,0.09))] opacity-95 transition duration-500 group-hover:opacity-100 dark:bg-[radial-gradient(circle_at_28%_18%,rgba(255,255,255,0.28),transparent_32%),linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02)_46%,rgba(255,255,255,0.06))] dark:opacity-80" />
+            <span className="absolute inset-[5px] rounded-full border border-slate-950/14 dark:border-white/12" />
+            <motion.span
+              animate={{ rotate: isMenuOpen ? 45 : 0, scale: isMenuOpen ? 0.94 : 1 }}
+              transition={{ type: 'spring', stiffness: 620, damping: 34 }}
+              className="relative flex"
+            >
+              <Plus className="size-8 stroke-[2.45] text-slate-950 dark:text-white" />
+            </motion.span>
+            <span className="sr-only">Cleon actions</span>
           </motion.button>
         </div>
       )}

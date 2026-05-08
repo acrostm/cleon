@@ -138,6 +138,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
         <DialogFooter className="shrink-0 p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
           <Button
             variant="ghost"
+            nativeButton={false}
             className="text-indigo-600 dark:text-indigo-400 font-bold tracking-tight hover:bg-indigo-500/10 transition-all group rounded-full px-6"
             render={
               <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
