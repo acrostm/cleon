@@ -1,19 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-// Use require to bypass TypeScript "only refers to a type" error
-const spotifyUrlInfo = require("spotify-url-info");
 
-const { getPreview } = spotifyUrlInfo(fetch) as {
+type SpotifyPreview = {
+  title: string;
+  artist: string;
+  image?: string;
+  link: string;
+  audio?: string;
+};
+
+type SpotifyUrlInfoFactory = (fetcher: typeof fetch) => {
   getPreview: (url: string) => Promise<{
     title: string;
     artist: string;
-    image: string;
+    image?: string;
     link: string;
-    audio: string;
+    audio?: string;
   }>;
 };
 
 function normalizeSpotifyUrl(url: string): string {
   return url.replace(/\/intl-[a-z]{2}\//, "/");
+}
+
+async function getSpotifyPreview(url: string): Promise<SpotifyPreview> {
+  const spotifyModule = await import("spotify-url-info") as unknown as {
+    default?: SpotifyUrlInfoFactory;
+  } & SpotifyUrlInfoFactory;
+  const createSpotifyUrlInfo = spotifyModule.default ?? spotifyModule;
+  return createSpotifyUrlInfo(fetch).getPreview(url);
 }
 
 export async function GET(request: NextRequest) {
@@ -25,12 +39,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const normalizedUrl = normalizeSpotifyUrl(url);
-    const data = await getPreview(normalizedUrl);
+    const data = await getSpotifyPreview(normalizedUrl);
 
     return NextResponse.json({
       title: data.title,
       artist: data.artist,
-      image: data.image,
+      image: data.image || "",
       link: data.link,
       audio: data.audio,
     });

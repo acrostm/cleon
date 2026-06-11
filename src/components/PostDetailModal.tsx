@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { Clock, ExternalLink, Loader2, ShieldAlert, Trash2 } from 'lucide-react';
 import { Post } from './PostCard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import {
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
 import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
+import { getPostTitle, platformMeta } from '@/lib/post-types';
+import { format } from 'date-fns';
 
 interface Props {
   post: Post | null;
@@ -27,8 +29,10 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   if (!post) return null;
 
-  const title = post.title || '';
+  const title = getPostTitle(post);
   const body = post.contentText || '';
+  const meta = platformMeta[post.platform];
+  const createdAt = format(new Date(post.createdAt), 'yyyy-MM-dd HH:mm');
 
   const handleDelete = async () => {
     if (!confirmDelete) {
@@ -46,67 +50,63 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   return (
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[95vw] md:w-full max-w-2xl max-h-[90vh] p-0 overflow-hidden rounded-3xl sm:rounded-3xl border-border/50 bg-card/95 backdrop-blur-2xl transition-all flex flex-col selection:bg-indigo-500/20 shadow-2xl">
-
-        {/*
-          Simple layout:
-          - One scrollable div (flex-1 min-h-0 overflow-y-auto) — direct flex child
-          - Glass header inside it as sticky top-0 — stays put while content scrolls under
-          - Footer outside as shrink-0 — always at bottom
-          No absolute positioning. No wrapper divs. No h-full.
-        */}
+      <DialogContent showCloseButton className="flex max-h-[92vh] w-[96vw] max-w-4xl overflow-hidden rounded-lg border-white/10 bg-[#0b0f17]/95 p-0 text-slate-100 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:rounded-lg">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          {/* Sticky Glassmorphism Header */}
-          <div className="sticky top-0 z-30 p-5 md:p-6 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Avatar className="w-10 h-10 border border-border/60 shadow-sm">
+          <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/10 bg-[#0b0f17]/80 p-4 backdrop-blur-xl md:p-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="size-10 border border-white/15 shadow-lg">
                 <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
-                <AvatarFallback className="bg-indigo-500 text-white font-bold">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="bg-cyan-300 text-slate-950 font-black">{post.authorName.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <DialogTitle className="text-[15px] font-black tracking-tight text-foreground leading-none uppercase">
-                {post.authorName}
-              </DialogTitle>
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-sm font-black leading-none text-white">{post.authorName}</DialogTitle>
+                <div className="mt-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  <span className={`size-1.5 rounded-full bg-gradient-to-r ${meta.tone}`} />
+                  {meta.label}
+                </div>
+              </div>
             </div>
-            <img 
-              src={getPlatformLogo(post.platform, post.originalUrl)} 
-              alt={post.platform} 
-              className="w-5 h-5 md:w-6 md:h-6 rounded-[4px]" 
+            <img
+              src={getPlatformLogo(post.platform, post.originalUrl)}
+              alt={post.platform}
+              className="size-8 rounded-md border border-white/10 bg-white/10 p-1"
             />
           </div>
 
-          {/* Content */}
-          <div className="px-6 py-6 md:px-8 md:py-8 space-y-8 max-w-2xl mx-auto">
+          <div className="mx-auto grid max-w-3xl gap-7 px-5 py-6 md:px-8 md:py-8">
             <div className="space-y-4">
-              {title && (
-                <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-snug text-foreground">
-                  <FormattedText text={title} />
-                </h2>
-              )}
+              <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-slate-400">
+                <Clock className="size-3.5" />
+                {createdAt}
+              </div>
+              <h2 className="text-2xl font-black leading-tight tracking-normal text-white md:text-4xl">
+                <FormattedText text={title} />
+              </h2>
               {body && (
-                <FormattedText 
+                <FormattedText
                   text={body}
-                  className="text-[15px] md:text-base leading-relaxed font-medium text-foreground/80 tracking-normal block"
+                  className="block text-[15px] leading-8 text-slate-200 md:text-base"
                 />
               )}
             </div>
 
             {post.mediaUrls.length > 0 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {post.mediaUrls.map((url, i) => {
                   const isVideo = isVideoUrl(url);
                   const isEmbed = isEmbedUrl(url);
                   const secureUrl = url.replace(/^http:\/\//i, 'https://');
-                  const commonClass = "w-full h-auto object-contain max-h-[80vh] group-hover:scale-[1.01] transition-transform duration-700";
+                  const commonClass = "h-auto max-h-[78vh] w-full object-contain transition duration-700 group-hover:scale-[1.01]";
 
                   return (
-                    <div key={i} className="rounded-3xl overflow-hidden border border-border/40 bg-muted/30 group">
+                    <div key={i} className="group overflow-hidden rounded-lg border border-white/10 bg-black/35">
                       {isEmbed ? (
                         <iframe
                           src={secureUrl}
                           allowFullScreen={true}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                           referrerPolicy="strict-origin-when-cross-origin"
-                          className="w-full aspect-video border-0 bg-black"
+                          className="aspect-video w-full border-0 bg-black"
                         />
                       ) : isVideo ? (
                         <video
@@ -134,34 +134,33 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
           </div>
         </div>
 
-        {/* Footer */}
-        <DialogFooter className="shrink-0 p-6 border-t border-border/40 bg-muted/5 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
+        <DialogFooter className="shrink-0 gap-3 border-t border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
           <Button
             variant="ghost"
             nativeButton={false}
-            className="text-indigo-600 dark:text-indigo-400 font-bold tracking-tight hover:bg-indigo-500/10 transition-all group rounded-full px-6"
+            className="h-10 rounded-md px-4 font-bold text-cyan-100 transition hover:bg-cyan-300/10"
             render={
               <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
             }
           >
-            <ExternalLink className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-            SOURCE
+            <ExternalLink className="mr-2 size-4" />
+            Open source
           </Button>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
             <Button
               variant={confirmDelete ? "destructive" : "outline"}
               disabled={isDeleting}
               onClick={handleDelete}
-              className={`flex-1 sm:flex-none rounded-full px-8 h-12 border-border/50 transition-all duration-300 font-bold tracking-tighter ${confirmDelete ? 'scale-105 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40'
+              className={`h-10 flex-1 rounded-md border-white/10 px-4 font-bold transition duration-300 sm:flex-none ${confirmDelete ? 'bg-rose-500/20 text-rose-100 ring-3 ring-rose-400/20' : 'bg-white/[0.04] text-slate-200 hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100'
                 }`}
             >
               {isDeleting ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
               ) : (
-                <Trash2 className="w-5 h-5 mr-2" />
+                confirmDelete ? <ShieldAlert className="mr-2 size-4" /> : <Trash2 className="mr-2 size-4" />
               )}
-              {isDeleting ? "PROCESSING..." : confirmDelete ? "REALLY DELETE?" : "DELETE POST"}
+              {isDeleting ? "Deleting..." : confirmDelete ? "Confirm delete" : "Delete"}
             </Button>
           </div>
         </DialogFooter>

@@ -1,5 +1,34 @@
 import { ContentParser, ParsedData } from './index';
 
+type DouyinImage = {
+  urlDefault?: string;
+  infoList?: Array<{ url?: string }>;
+  urlOriginal?: string;
+  url?: string;
+};
+
+type DouyinVideoInfo = {
+  author?: {
+    nickname?: string;
+    avatar_thumb?: { url_list?: string[] };
+    avatar_larger?: { url_list?: string[] };
+  };
+  desc?: string;
+  imageList?: DouyinImage[];
+  video?: {
+    cover?: { url_list?: string[] };
+    origin_cover?: { url_list?: string[] };
+  };
+};
+
+type DouyinRouterData = {
+  loaderData?: Record<string, {
+    videoInfoRes?: {
+      item_list?: DouyinVideoInfo[];
+    };
+  }>;
+};
+
 export class DouyinParser implements ContentParser {
   match(url: string): boolean {
     return /douyin\.com/.test(url);
@@ -35,7 +64,7 @@ export class DouyinParser implements ContentParser {
               if (lastPart && /^\d+$/.test(lastPart)) {
                   videoId = lastPart;
               }
-          } catch(e) {}
+          } catch {}
       }
       
       if (!videoId) {
@@ -55,11 +84,11 @@ export class DouyinParser implements ContentParser {
       
       // 4. Extract JSON from _ROUTER_DATA
       const routerDataMatch = html.match(/window\._ROUTER_DATA\s*=\s*({[\s\S]*?});?<\/script>/);
-      let videoInfo: any = null;
+      let videoInfo: DouyinVideoInfo | null = null;
       
       if (routerDataMatch) {
           try {
-              const data = JSON.parse(routerDataMatch[1]);
+              const data = JSON.parse(routerDataMatch[1]) as DouyinRouterData;
               const pageData = data.loaderData?.[`video_(id)/page`];
               if (pageData?.videoInfoRes?.item_list && pageData.videoInfoRes.item_list.length > 0) {
                   videoInfo = pageData.videoInfoRes.item_list[0];
@@ -81,7 +110,7 @@ export class DouyinParser implements ContentParser {
       const coverUrl = videoInfo.video?.cover?.url_list?.[0] || 
                        videoInfo.video?.origin_cover?.url_list?.[0] || '';
                        
-      const mediaUrls = [];
+      const mediaUrls: string[] = [];
       if (coverUrl) {
           mediaUrls.push(coverUrl);
       }

@@ -1,7 +1,7 @@
 "use client";
 
 import { SpotifyCard } from "@/components/spotify-card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SiSpotify } from "@icons-pack/react-simple-icons";
 import {
