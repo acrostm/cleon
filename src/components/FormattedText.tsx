@@ -25,7 +25,7 @@ export function FormattedText({ text, className }: FormattedTextProps) {
           return (
             <span 
               key={i} 
-              className="inline-block px-1 py-0.5 -mx-0.5 rounded-md text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors"
+              className="inline-block px-1 py-0.5 -mx-0.5 rounded-md text-cyan-200 font-bold bg-cyan-300/10 hover:bg-cyan-300/15 transition-colors"
             >
               {part}
             </span>

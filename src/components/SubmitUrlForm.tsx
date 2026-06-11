@@ -2,23 +2,22 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { SendHorizontal, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { SendHorizontal, Link as LinkIcon, Loader2, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Props {
-  onSubmit: (url: string) => void;
+  onSubmit: (url: string) => void | Promise<boolean>;
   isSubmitting: boolean;
 }
 
 export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
   const [url, setUrl] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
-    onSubmit(url.trim());
-    setUrl('');
+    const result = await onSubmit(url.trim());
+    if (result !== false) setUrl('');
   };
 
   return (
@@ -27,32 +26,40 @@ export function SubmitUrlForm({ onSubmit, isSubmitting }: Props) {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
       onSubmit={handleSubmit} 
-      className="relative flex items-center w-full shadow-2xl shadow-indigo-500/5 rounded-full bg-card/40 backdrop-blur-xl overflow-hidden border border-border/50 transition-all duration-300 focus-within:border-indigo-500 focus-within:shadow-[0_0_25px_rgba(79,70,229,0.15)] group"
+      className="grid w-full gap-3"
     >
-      <div className="pl-6 text-muted-foreground/60 group-focus-within:text-indigo-500 transition-colors">
-        <LinkIcon className="w-5 h-5" />
+      <div className="group relative overflow-hidden rounded-lg border border-white/10 bg-black/25 transition duration-300 focus-within:border-cyan-300/45 focus-within:bg-black/35 focus-within:shadow-[0_0_0_3px_rgba(34,211,238,0.12)]">
+        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+          <LinkIcon className="size-3.5 text-cyan-200" />
+          URL Intake
+        </div>
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://x.com/...  bilibili.com/...  mp.weixin.qq.com/..."
+          className="h-14 w-full bg-transparent px-3 text-sm font-medium text-white outline-none placeholder:text-slate-600"
+          disabled={isSubmitting}
+          required
+        />
       </div>
-      <input
-        type="text"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="Drop a Twitter, Bilibili, or Web link here..."
-        className="flex-1 bg-transparent border-none outline-none focus:ring-0 text-[15px] md:text-base h-16 px-4 text-foreground placeholder:text-muted-foreground/30 font-medium tracking-tight"
-        disabled={isSubmitting}
-        required
-      />
-      <div className="pr-2">
-        <Button 
-          type="submit" 
-          size="icon" 
-          disabled={!url || isSubmitting}
-          className="rounded-full w-11 h-11 bg-indigo-600 hover:bg-indigo-700 transition-all dark:text-white shadow-lg active:scale-95 flex items-center justify-center"
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <ShieldCheck className="size-3.5 text-emerald-300" />
+          SSRF guard active
+        </span>
+        <Button
+          type="submit"
+          disabled={!url.trim() || isSubmitting}
+          className="h-10 rounded-md bg-cyan-300 px-4 font-black text-slate-950 transition hover:bg-cyan-200"
         >
           {isSubmitting ? (
-             <Loader2 className="w-5 h-5 animate-spin" />
+             <Loader2 className="size-4 animate-spin" />
           ) : (
-             <SendHorizontal className="w-4.5 h-4.5" />
+             <SendHorizontal className="size-4" />
           )}
+          Capture
         </Button>
       </div>
     </motion.form>

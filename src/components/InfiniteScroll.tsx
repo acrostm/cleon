@@ -34,27 +34,21 @@ export const InfiniteScroll = memo(function InfiniteScroll({ onLoadMore, hasMore
   return (
     <div ref={observerRef} className="pt-8 pb-12">
       {isLoadingMore && (
-        <div className="space-y-12">
-           {/* Skeleton matching the PostCard layout (simplified) */}
-           <div className="flex group relative animate-pulse">
-            <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-20">
-              <Skeleton className="h-3 w-10" />
-              <Skeleton className="h-2 w-14 mt-2" />
+        <div className="space-y-5">
+          <div className="grid animate-pulse gap-3 md:grid-cols-[4.5rem_1fr]">
+            <div className="hidden pt-4 text-right md:block">
+              <Skeleton className="ml-auto h-3 w-10 bg-white/10" />
+              <Skeleton className="ml-auto mt-2 h-2 w-14 bg-white/10" />
             </div>
-            <div className="relative flex flex-col items-center w-12 md:w-16 pt-9">
-              <div className="z-10 w-3 h-3 rounded-full bg-muted border-2 border-background" />
-            </div>
-            <div className="flex-1 pb-8">
-              <div className="p-6 rounded-[2rem] bg-card/40 border border-border/50 backdrop-blur-sm space-y-4">
-                 <div className="flex items-center space-x-4">
-                   <Skeleton className="h-10 w-10 rounded-full" />
-                   <div className="space-y-2">
-                     <Skeleton className="h-4 w-[140px]" />
-                     <Skeleton className="h-3 w-[100px]" />
-                   </div>
-                 </div>
-                 <Skeleton className="h-24 w-full rounded-2xl" />
+            <div className="rounded-lg border border-white/10 bg-white/[0.055] p-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-10 rounded-md bg-white/10" />
+                <div className="grid flex-1 gap-2">
+                  <Skeleton className="h-4 w-[140px] bg-white/10" />
+                  <Skeleton className="h-3 w-[100px] bg-white/10" />
+                </div>
               </div>
+              <Skeleton className="mt-4 h-24 w-full rounded-lg bg-white/10" />
             </div>
           </div>
         </div>

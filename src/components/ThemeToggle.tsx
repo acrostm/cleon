@@ -21,7 +21,7 @@ export function ThemeToggle() {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="rounded-full w-10 h-10 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors"
+            className="h-10 w-10 rounded-md border border-white/10 bg-white/[0.06] text-slate-200 hover:bg-white/[0.1]"
           />
         }
       >
@@ -29,24 +29,24 @@ export function ThemeToggle() {
         <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         <span className="sr-only">Toggle theme</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="rounded-2xl p-2 min-w-[130px] border-slate-200 dark:border-slate-800 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 shadow-2xl">
+      <DropdownMenuContent align="end" className="min-w-[130px] rounded-lg border-white/10 bg-[#0b0f17]/90 p-2 text-slate-100 shadow-2xl backdrop-blur-xl">
         <DropdownMenuItem 
           onClick={() => setTheme('light')} 
-          className="rounded-xl flex items-center gap-2.5 cursor-pointer py-2 focus:bg-indigo-50 dark:focus:bg-indigo-500/10 transition-colors"
+          className="flex cursor-pointer items-center gap-2.5 rounded-md py-2 transition-colors focus:bg-cyan-300/10"
         >
           <Sun className="w-4 h-4 text-orange-500" /> 
           <span className="font-medium">Light</span>
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => setTheme('dark')} 
-          className="rounded-xl flex items-center gap-2.5 cursor-pointer py-2 focus:bg-indigo-50 dark:focus:bg-indigo-500/10 transition-colors"
+          className="flex cursor-pointer items-center gap-2.5 rounded-md py-2 transition-colors focus:bg-cyan-300/10"
         >
-          <Moon className="w-4 h-4 text-indigo-400" /> 
+          <Moon className="w-4 h-4 text-cyan-200" />
           <span className="font-medium">Dark</span>
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => setTheme('system')} 
-          className="rounded-xl flex items-center gap-2.5 cursor-pointer py-2 focus:bg-indigo-50 dark:focus:bg-indigo-500/10 transition-colors"
+          className="flex cursor-pointer items-center gap-2.5 rounded-md py-2 transition-colors focus:bg-cyan-300/10"
         >
           <Monitor className="w-4 h-4 text-slate-500" /> 
           <span className="font-medium">System</span>

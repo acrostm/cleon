@@ -4,6 +4,9 @@ import { memo } from 'react';
 import { PostCard, Post } from './PostCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfiniteScroll } from './InfiniteScroll';
+import { GsapReveal } from '@/components/command-center/GsapReveal';
+import { CommandCenterSurface } from '@/components/command-center/CommandCenterSurface';
+import { Inbox, Radar } from 'lucide-react';
 
 interface Props {
   posts: Post[];
@@ -25,41 +28,48 @@ export const Timeline = memo(function Timeline({
   isLoadingMore
 }: Props) {
   return (
-    <div className="relative space-y-12 pb-10">
-      {/* The Vertical Rail Line */}
-      {!isLoading && posts.length > 0 && (
-        <div className="absolute left-[24px] md:left-[128px] top-8 bottom-0 w-px bg-border/40" />
-      )}
-
-      <div className="space-y-12">
+    <div className="relative pb-10">
+      <GsapReveal className="space-y-5" selector="[data-post-card]" y={24} stagger={0.045}>
         {isSubmitting && (
-          <div className="flex group relative animate-pulse">
-            <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-20">
-              <Skeleton className="h-3 w-10" />
-              <Skeleton className="h-2 w-14 mt-2" />
+          <CommandCenterSurface className="grid gap-4 rounded-lg p-4">
+            <div className="flex items-center gap-3 text-sm font-bold text-cyan-100">
+              <span className="grid size-9 place-items-center rounded-md bg-cyan-300/15 text-cyan-100">
+                <Radar className="size-4 animate-pulse" />
+              </span>
+              Analyzing capture and syncing media
             </div>
-            <div className="relative flex flex-col items-center w-12 md:w-16 pt-9">
-              <div className="z-10 w-3 h-3 rounded-full bg-muted border-2 border-background" />
-            </div>
-            <div className="flex-1 pb-8">
-              <div className="p-6 rounded-[2rem] bg-card/40 border border-border/50 space-y-4">
-                 <div className="flex items-center space-x-4">
-                   <Skeleton className="h-10 w-10 rounded-full" />
-                   <div className="space-y-2">
-                     <Skeleton className="h-4 w-[200px]" />
-                     <Skeleton className="h-3 w-[150px]" />
-                   </div>
-                 </div>
-                 <Skeleton className="h-[200px] w-full rounded-2xl" />
-              </div>
-            </div>
-          </div>
+            <Skeleton className="h-4 w-2/3 bg-white/10" />
+            <Skeleton className="h-28 w-full rounded-lg bg-white/10" />
+          </CommandCenterSurface>
         )}
 
         {isLoading ? (
-          <div className="space-y-6">
-             {[1,2,3].map(i => <Skeleton key={i} className="h-64 w-full rounded-3xl" />)}
+          <div className="space-y-5">
+            {[1, 2, 3].map((i) => (
+              <CommandCenterSurface key={i} className="grid gap-4 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="size-10 rounded-md bg-white/10" />
+                  <div className="grid flex-1 gap-2">
+                    <Skeleton className="h-4 w-2/3 bg-white/10" />
+                    <Skeleton className="h-3 w-1/3 bg-white/10" />
+                  </div>
+                </div>
+                <Skeleton className="h-32 w-full rounded-lg bg-white/10" />
+              </CommandCenterSurface>
+            ))}
           </div>
+        ) : posts.length === 0 ? (
+          <CommandCenterSurface className="grid place-items-center rounded-lg px-6 py-16 text-center">
+            <div className="grid max-w-sm gap-3">
+              <span className="mx-auto grid size-12 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300">
+                <Inbox className="size-5" />
+              </span>
+              <h3 className="text-xl font-black text-white">No captures in this view</h3>
+              <p className="text-sm leading-6 text-slate-400">
+                Change the platform filter or collect a new link from the capture panel.
+              </p>
+            </div>
+          </CommandCenterSurface>
         ) : (
           <>
             {posts.map(post => (
@@ -69,7 +79,7 @@ export const Timeline = memo(function Timeline({
                 onClick={() => onPostClick(post)} 
               />
             ))}
-            
+
             <InfiniteScroll 
               onLoadMore={onLoadMore}
               hasMore={hasMore}
@@ -77,7 +87,7 @@ export const Timeline = memo(function Timeline({
             />
           </>
         )}
-      </div>
+      </GsapReveal>
     </div>
   );
 });

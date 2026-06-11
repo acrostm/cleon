@@ -1,5 +1,23 @@
 import { ContentParser, ParsedData } from './index';
 
+type TwitterMedia = {
+  url?: string;
+};
+
+type TwitterPayload = {
+  mediaURLs?: string[];
+  media_extended?: TwitterMedia[];
+  article?: {
+    title?: string;
+    preview_text?: string;
+    image?: string;
+  };
+  text?: string;
+  user_name?: string;
+  user_screen_name?: string;
+  user_profile_image_url?: string;
+};
+
 export class TwitterParser implements ContentParser {
   match(url: string): boolean {
     const parsed = new URL(url);
@@ -16,11 +34,11 @@ export class TwitterParser implements ContentParser {
       throw new Error(`Failed to fetch X/Twitter data: ${res.statusText}`);
     }
 
-    const data = await res.json();
+    const data = await res.json() as TwitterPayload;
     
     let title = '';
     let body = '';
-    const mediaUrls: string[] = data.mediaURLs || data.media_extended?.map((m: any) => m.url) || [];
+    const mediaUrls: string[] = data.mediaURLs || data.media_extended?.map((m) => m.url || '').filter(Boolean) || [];
 
     // Handle Twitter Articles
     if (data.article) {

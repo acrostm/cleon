@@ -79,6 +79,7 @@ export function FloatingActionMenu({ onSubmit, isSubmitting }: Props) {
       setIsDialogOpen(false);
       setIsMenuOpen(false);
     }
+    return success;
   };
 
   const openCollectDialog = () => {

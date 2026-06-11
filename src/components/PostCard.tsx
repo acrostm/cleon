@@ -1,195 +1,193 @@
 'use client';
 
-import { memo, useState, useEffect } from 'react';
+import { memo } from 'react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
-import { Share2 } from 'lucide-react';
+import { ExternalLink, ImageIcon, Share2, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
 import { toast } from 'sonner';
 import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
+import { getPostPreview, getPostTitle, platformMeta, type Post } from '@/lib/post-types';
 
-export type Post = {
-  id: string;
-  originalUrl: string;
-  platform: 'TWITTER' | 'BILIBILI' | 'WEB' | 'XIAOHONGSHU' | 'DOUYIN' | 'WECHAT' | 'YOUTUBE';
-  authorName: string;
-  avatarUrl: string;
-  title?: string | null;
-  contentText: string;
-  mediaUrls: string[];
-  createdAt: string;
-};
+export type { Post } from '@/lib/post-types';
 
 export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
   const date = new Date(post.createdAt);
-  const timeStr = mounted ? format(date, 'HH:mm') : '';
-  const dateStr = mounted ? format(date, 'MMM dd, yyyy') : '';
+  const timeStr = format(date, 'HH:mm');
+  const dateStr = format(date, 'MMM dd');
+  const fullDateStr = format(date, 'yyyy-MM-dd');
+  const title = getPostTitle(post);
+  const body = getPostPreview(post, 220);
+  const meta = platformMeta[post.platform];
 
-  // Determine Title and Content
-  const title = post.title || '';
-  const body = post.contentText || '';
-
-  // Grid layout helper
   const mediaCount = post.mediaUrls?.length || 0;
   let gridClass = "grid-cols-1";
   if (mediaCount === 2) gridClass = "grid-cols-2";
-  else if (mediaCount >= 3) gridClass = "grid-cols-2 md:grid-cols-3";
+  else if (mediaCount >= 3) gridClass = "grid-cols-2";
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
     const url = `${window.location.origin}/#${post.id}`;
     navigator.clipboard.writeText(url).then(() => {
       toast.success('Link copied to clipboard');
-    }).catch(() => {
+    }).catch((error) => {
+      console.error('[Share Clipboard Error]:', error);
       toast.error('Failed to copy link');
     });
   };
 
+  const handleOpenSource = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(post.originalUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <div id={post.id} className="flex group relative">
-      {/* Left Column: Detailed Timestamp */}
-      <div className="hidden md:flex flex-col items-end w-24 pt-8 pr-8 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
-        <span className="text-xs font-bold leading-none text-foreground">{timeStr}</span>
-        <span className="text-[9px] uppercase tracking-tighter mt-1.5 font-bold text-muted-foreground">{dateStr}</span>
+    <article id={post.id} data-post-card className="group relative grid gap-3 md:grid-cols-[4.5rem_1fr]">
+      <div className="hidden pt-4 text-right md:block">
+        <p className="text-xs font-black text-slate-200">{timeStr}</p>
+        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{dateStr}</p>
       </div>
 
-      {/* Center Column: The Rail Node */}
-      <div className="relative flex flex-col items-center w-12 md:w-16 pt-9">
-        <div className="z-10 w-3 h-3 rounded-full border-2 border-background bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] group-hover:scale-125 transition-transform duration-500" />
-      </div>
-
-      {/* Right Column: The Card Content */}
-      <div className="flex-1 min-w-0 pb-8">
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          onClick={onClick}
-          className="w-full"
-        >
-          <Card className="rounded-[2rem] overflow-hidden border-border/50 bg-card/40 backdrop-blur-xl hover:bg-card hover:border-indigo-500/30 transition-all duration-500 cursor-pointer shadow-sm hover:shadow-2xl hover:shadow-indigo-500/5 group/card w-full">
-            {/* Unified Text Section (Fixed/Consistent Height) */}
-            <div className="relative max-h-[180px] md:max-h-[220px] overflow-hidden group/text w-full">
-              <CardHeader className="p-6 pb-2">
-                {/* Mobile Date Header */}
-                <div className="flex md:hidden items-center gap-2 mb-3 text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest leading-none">
-                   {dateStr && timeStr ? `${dateStr} • ${timeStr}` : ''}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+        onClick={onClick}
+        className="min-w-0"
+      >
+        <Card className="relative cursor-pointer overflow-hidden rounded-lg border-white/10 bg-white/[0.065] py-0 text-slate-100 ring-1 ring-white/5 backdrop-blur-2xl transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-white/[0.09] hover:shadow-[0_28px_90px_rgba(8,145,178,0.15)]">
+          <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${meta.tone} opacity-70`} />
+          <CardHeader className="gap-4 p-4 pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-slate-300">
+                    <span className={`size-1.5 rounded-full bg-gradient-to-r ${meta.tone}`} />
+                    {meta.label}
+                  </span>
+                  <span className="md:hidden">{fullDateStr && timeStr ? `${fullDateStr} / ${timeStr}` : ''}</span>
+                  {mediaCount > 0 && (
+                    <span className="inline-flex items-center gap-1 text-slate-500">
+                      <ImageIcon className="size-3" />
+                      {mediaCount}
+                    </span>
+                  )}
                 </div>
+                <h2 className="line-clamp-2 text-xl font-black leading-tight tracking-normal text-white transition group-hover:text-cyan-100 md:text-2xl">
+                  <FormattedText text={title} />
+                </h2>
+              </div>
+              <img
+                src={getPlatformLogo(post.platform, post.originalUrl)}
+                alt={post.platform}
+                className="mt-1 size-8 shrink-0 rounded-md border border-white/10 bg-white/10 p-1 shadow-lg"
+              />
+            </div>
+          </CardHeader>
 
-                {/* Dynamic Title */}
-                {title && (
-                  <h2 className="text-xl md:text-2xl font-bold tracking-tight leading-tight text-foreground group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors duration-300">
-                    <FormattedText text={title} />
-                  </h2>
-                )}
-              </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {body && (
+              <FormattedText
+                text={body}
+                className="line-clamp-5 block text-[15px] leading-7 text-slate-300 transition group-hover:text-slate-200"
+              />
+            )}
+          </CardContent>
 
-              <CardContent className="px-6 py-0 pb-6">
-                {body && (
-                  <FormattedText 
-                    text={body}
-                    className="text-muted-foreground leading-relaxed text-[15px] group-hover/card:text-foreground/80 transition-colors duration-300 block line-clamp-6"
-                  />
-                )}
-              </CardContent>
+          {mediaCount > 0 && (
+            <CardContent className="px-4 pb-4 pt-0">
+              <div className={`grid ${gridClass} overflow-hidden rounded-lg border border-white/10 bg-black/20`}>
+                {post.mediaUrls.slice(0, 4).map((url, i) => {
+                  const isVideo = isVideoUrl(url);
+                  const isEmbed = isEmbedUrl(url);
+                  const secureUrl = url.replace(/^http:\/\//i, 'https://');
+
+                  const lowerUrl = secureUrl.toLowerCase();
+                  const isR2 = lowerUrl.includes('r2.dev') ||
+                    (process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN && lowerUrl.includes(process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN.toLowerCase()));
+                  const needsProxy = !isR2 && (
+                    lowerUrl.includes('twimg.com') ||
+                    lowerUrl.includes('sns-webpic') ||
+                    lowerUrl.includes('xiaohongshu.com')
+                  );
+                  const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}&referer=${encodeURIComponent(post.originalUrl)}` : secureUrl;
+                  const commonClass = `block w-full bg-black/40 ${mediaCount === 1 ? 'max-h-[420px] object-contain' : 'aspect-square object-cover'} transition duration-700 group-hover:scale-[1.025]`;
+
+                  return (
+                    <div key={i} className="relative overflow-hidden border-white/10 odd:border-r even:border-l [&:nth-child(n+3)]:border-t">
+                      {isEmbed ? (
+                        <iframe
+                          src={displayUrl}
+                          allowFullScreen={true}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          referrerPolicy="strict-origin-when-cross-origin"
+                          className="block aspect-video w-full border-0 bg-black"
+                        />
+                      ) : isVideo ? (
+                        <video src={displayUrl} autoPlay muted loop playsInline className={commonClass} />
+                      ) : (
+                        <img
+                          src={displayUrl}
+                          referrerPolicy={needsProxy ? "no-referrer" : "strict-origin-when-cross-origin"}
+                          alt={`Media ${i + 1}`}
+                          loading="lazy"
+                          className={commonClass}
+                        />
+                      )}
+                      {i === 3 && mediaCount > 4 && (
+                        <div className="absolute inset-0 grid place-items-center bg-black/55 text-sm font-black text-white">
+                          +{mediaCount - 4}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          )}
+
+          <CardFooter className="flex items-center justify-between gap-3 rounded-none border-t border-white/10 bg-black/20 p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="size-9 border border-white/15">
+                <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
+                <AvatarFallback className="bg-cyan-400 text-slate-950 font-black">
+                  {post.authorName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold leading-none text-white">{post.authorName}</p>
+                <p className="mt-1 text-[11px] font-medium text-slate-500">{fullDateStr}</p>
+              </div>
             </div>
 
-            {/* Media Section (Variable Height) */}
-            {mediaCount > 0 && (
-              <CardContent className="px-6 pb-6 pt-2 w-full overflow-hidden">
-                <div className={`grid ${gridClass} gap-3 rounded-2xl overflow-hidden border border-border/40 w-full`}>
-                  {post.mediaUrls.map((url, i) => {
-                     const isVideo = isVideoUrl(url);
-                     const isEmbed = isEmbedUrl(url);
-                     const secureUrl = url.replace(/^http:\/\//i, 'https://');
-
-                     // Media Proxy Logic: Only proxy platform URLs with hotlinking protection.
-                     // DO NOT proxy R2 URLs as they are already public and optimized.
-                     const lowerUrl = secureUrl.toLowerCase();
-                     const isR2 = lowerUrl.includes('r2.dev') || 
-                                  (process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN && lowerUrl.includes(process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN.toLowerCase()));
-                     
-                     const needsProxy = !isR2 && (
-                                        lowerUrl.includes('twimg.com') || 
-                                        lowerUrl.includes('sns-webpic') || 
-                                        lowerUrl.includes('xiaohongshu.com')
-                     );
-                     
-                     const displayUrl = needsProxy ? `/api/proxy?url=${encodeURIComponent(secureUrl)}&referer=${encodeURIComponent(post.originalUrl)}` : secureUrl;
-                     
-                     const commonClass = `w-full h-auto ${mediaCount === 1 ? 'max-h-[500px] object-contain' : 'min-h-[220px] aspect-square object-cover'} hover:scale-[1.03] transition-transform duration-700`;
-                     
-                     return (
-                     <div key={i} className={`rounded-lg overflow-hidden bg-muted/30 w-full ${mediaCount === 3 && i === 0 ? 'col-span-2 md:col-span-1' : ''}`}>
-                        {isEmbed ? (
-                          <iframe
-                            src={displayUrl}
-                            allowFullScreen={true}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            referrerPolicy="strict-origin-when-cross-origin"
-                            className="w-full aspect-video border-0 bg-black block"
-                          />
-                        ) : isVideo ? (
-                          <video
-                            src={displayUrl}
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                            className={commonClass}
-                          />
-                        ) : (
-                          <img 
-                            src={displayUrl} 
-                            referrerPolicy={needsProxy ? "no-referrer" : "strict-origin-when-cross-origin"}
-                            alt={`Media ${i}`} 
-                            loading="lazy"
-                            className={commonClass} 
-                          />
-                        )}
-                     </div>
-                     );
-                  })}
-                </div>
-              </CardContent>
-            )}
-
-            <CardFooter className="p-6 pt-4 flex items-center justify-between bg-muted/5 dark:bg-muted/10 border-t border-border/40">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-9 h-9 border border-border/60">
-                  <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
-                  <AvatarFallback className="bg-indigo-500 text-white font-bold">
-                    {post.authorName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <span className="font-bold text-sm leading-none text-foreground">{post.authorName}</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                 <button 
-                   onClick={handleShare}
-                   className="p-2 -mr-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-muted-foreground hover:text-foreground"
-                   title="Share link"
-                 >
-                   <Share2 className="w-4 h-4 md:w-5 md:h-5" />
-                 </button>
-                 <img 
-                   src={getPlatformLogo(post.platform, post.originalUrl)} 
-                   alt={post.platform} 
-                   className="w-5 h-5 md:w-6 md:h-6 transition-all duration-500 rounded-[4px]" 
-                 />
-              </div>
-            </CardFooter>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleShare}
+                className="grid size-9 place-items-center rounded-md border border-white/10 text-slate-400 transition hover:border-cyan-300/40 hover:bg-cyan-300/10 hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-cyan-300/30"
+                title="Copy deep link"
+              >
+                <Share2 className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenSource}
+                className="grid size-9 place-items-center rounded-md border border-white/10 text-slate-400 transition hover:border-amber-300/40 hover:bg-amber-300/10 hover:text-amber-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-amber-300/30"
+                title="Open source"
+              >
+                <ExternalLink className="size-4" />
+              </button>
+              <span className="ml-1 hidden items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 sm:inline-flex">
+                <Sparkles className="size-3" />
+                Detail
+              </span>
+            </div>
+          </CardFooter>
+        </Card>
+      </motion.div>
+    </article>
   );
 });

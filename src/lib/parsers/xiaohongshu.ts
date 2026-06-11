@@ -1,5 +1,46 @@
 import { ContentParser, ParsedData } from './index';
 
+type XhsUser = {
+  nickname?: string;
+  nickName?: string;
+  name?: string;
+  avatar?: string;
+  avatarUrl?: string;
+  image?: string;
+};
+
+type XhsImage = {
+  urlDefault?: string;
+  infoList?: Array<{ url?: string }>;
+  urlOriginal?: string;
+  url?: string;
+};
+
+type XhsPost = {
+  user?: XhsUser;
+  imageList?: XhsImage[];
+  video?: {
+    media?: {
+      stream?: {
+        h264?: Array<{ masterUrl?: string }>;
+      };
+    };
+  };
+  title?: string;
+  desc?: string;
+};
+
+type XhsState = {
+  note?: {
+    noteDetailMap?: Record<string, { note?: XhsPost }>;
+  };
+  noteData?: {
+    noteDetailMap?: Record<string, { note?: XhsPost }>;
+    data?: { noteData?: XhsPost };
+    collectionData?: { userInfo?: XhsUser };
+  };
+};
+
 export class XiaohongshuParser implements ContentParser {
   match(url: string): boolean {
     return /xiaohongshu\.com|xhslink\.com/.test(url);
@@ -27,9 +68,9 @@ export class XiaohongshuParser implements ContentParser {
       
       // Replace undefined with null to make it valid JSON
       const jsonString = stateMatch[1].replace(/undefined/g, 'null');
-      const state = JSON.parse(jsonString);
+      const state = JSON.parse(jsonString) as XhsState;
       
-      let post: any = null;
+      let post: XhsPost | null = null;
       let authorName = 'Unknown Red User';
       let avatarUrl = '';
       
@@ -38,9 +79,11 @@ export class XiaohongshuParser implements ContentParser {
       if (noteMap) {
           const noteKeys = Object.keys(noteMap);
           if (noteKeys.length > 0) {
-              post = noteMap[noteKeys[0]].note;
-              authorName = post.user?.nickname || post.user?.nickName || post.user?.name || authorName;
-              avatarUrl = post.user?.avatar || post.user?.avatarUrl || post.user?.image || avatarUrl;
+              post = noteMap[noteKeys[0]].note ?? null;
+              if (post) {
+                  authorName = post.user?.nickname || post.user?.nickName || post.user?.name || authorName;
+                  avatarUrl = post.user?.avatar || post.user?.avatarUrl || post.user?.image || avatarUrl;
+              }
           }
       }
       
@@ -65,7 +108,7 @@ export class XiaohongshuParser implements ContentParser {
       // Extract Images
       const images: string[] = [];
       if (post.imageList && Array.isArray(post.imageList)) {
-         post.imageList.forEach((img: any) => {
+         post.imageList.forEach((img) => {
              // Prefer un-watermarked/hd options if available
              if (img.urlDefault) images.push(img.urlDefault);
              else if (img.infoList && img.infoList[0]?.url) images.push(img.infoList[0].url);

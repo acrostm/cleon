@@ -50,7 +50,8 @@ export async function GET(req: Request) {
         resHeaders.set('Access-Control-Allow-Origin', '*');
 
         return new NextResponse(response.body, { headers: resHeaders });
-    } catch (error: any) {
-        return new NextResponse(error.message, { status: 500 });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to proxy media';
+        return new NextResponse(message, { status: 500 });
     }
 }

@@ -1,12 +1,14 @@
 import { CrossPlatformClipboard } from "@/components/CrossPlatformClipboard";
+import { CommandCenterBackground } from "@/components/command-center/CommandCenterBackground";
 import { HomeReturnButton } from "@/components/HomeReturnButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function ClipboardPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground transition-colors duration-500 selection:bg-indigo-500/10 dark:selection:bg-indigo-500/30">
-      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-8 md:py-12">
-        <header className="mb-8 flex items-center justify-between gap-4">
+    <main className="min-h-screen overflow-x-hidden text-slate-100 selection:bg-cyan-300/20">
+      <CommandCenterBackground />
+      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 py-6 md:px-6 md:py-10">
+        <header className="mb-6 flex items-center justify-between gap-4">
           <HomeReturnButton />
           <ThemeToggle />
         </header>

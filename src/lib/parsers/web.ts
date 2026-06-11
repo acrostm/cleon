@@ -1,6 +1,28 @@
 import * as cheerio from 'cheerio';
 import { ContentParser, ParsedData } from './index';
 
+type JsonLdPerson = {
+  name?: string;
+  image?: string | { url?: string };
+};
+
+type JsonLdData = {
+  '@type'?: string | string[];
+  headline?: string;
+  name?: string;
+  author?: JsonLdPerson | JsonLdPerson[];
+  publisher?: {
+    name?: string;
+    logo?: string | { url?: string };
+  };
+  articleBody?: string;
+  description?: string;
+  image?: string | { url?: string } | Array<string | { url?: string }>;
+};
+
+const readUrlLike = (value: string | { url?: string } | undefined) =>
+  typeof value === 'string' ? value : value?.url || '';
+
 export class WebParser implements ContentParser {
   match(url: string): boolean {
     return url.startsWith('http://') || url.startsWith('https://');
@@ -32,11 +54,13 @@ export class WebParser implements ContentParser {
     try {
       $('script[type="application/ld+json"]').each((_, element) => {
         try {
-          const json = JSON.parse($(element).html() || '{}');
+          const json = JSON.parse($(element).html() || '{}') as JsonLdData | JsonLdData[];
           const data = Array.isArray(json) ? json[0] : json;
 
           // Look for Article or BlogPosting types
-          const isArticle = ['Article', 'NewsArticle', 'BlogPosting', 'WebPage'].includes(data['@type']);
+          const dataType = data['@type'];
+          const types = Array.isArray(dataType) ? dataType : [dataType];
+          const isArticle = types.some((type) => type && ['Article', 'NewsArticle', 'BlogPosting', 'WebPage'].includes(type));
           if (isArticle || data.headline || data.author) {
             title = title || data.headline || data.name || '';
             
@@ -44,13 +68,13 @@ export class WebParser implements ContentParser {
             if (data.author) {
               const author = Array.isArray(data.author) ? data.author[0] : data.author;
               authorName = authorName || author.name || '';
-              avatarUrl = avatarUrl || author.image?.url || author.image || '';
+              avatarUrl = avatarUrl || readUrlLike(author.image);
             }
 
             // Publisher as fallback for author/avatar
             if (!authorName && data.publisher) {
               authorName = data.publisher.name || '';
-              avatarUrl = avatarUrl || data.publisher.logo?.url || data.publisher.logo || '';
+              avatarUrl = avatarUrl || readUrlLike(data.publisher.logo);
             }
 
             // Content
@@ -59,13 +83,13 @@ export class WebParser implements ContentParser {
             // Images
             if (data.image) {
               const images = Array.isArray(data.image) ? data.image : [data.image];
-              images.forEach((img: any) => {
-                const imgUrl = typeof img === 'string' ? img : (img.url || '');
+              images.forEach((img) => {
+                const imgUrl = readUrlLike(img);
                 if (imgUrl && !mediaUrls.includes(imgUrl)) mediaUrls.push(imgUrl);
               });
             }
           }
-        } catch (e) {
+        } catch {
           // Ignore invalid JSON
         }
       });
@@ -103,7 +127,7 @@ export class WebParser implements ContentParser {
       if (avatarUrl && !avatarUrl.startsWith('http')) {
         try {
           avatarUrl = new URL(avatarUrl, url).toString();
-        } catch (e) {}
+        } catch {}
       }
     }
 
@@ -139,7 +163,7 @@ export class WebParser implements ContentParser {
       if (u && !u.startsWith('http')) {
         try {
           return new URL(u, url).toString();
-        } catch (e) {
+        } catch {
           return u;
         }
       }

@@ -1,6 +1,33 @@
 import * as cheerio from 'cheerio';
 import { ContentParser, ParsedData } from './index';
 
+type YoutubeOembed = {
+  author_name?: string;
+  title?: string;
+};
+
+type YoutubeThumbnail = {
+  url?: string;
+};
+
+type YoutubeOwnerRenderer = {
+  thumbnail?: {
+    thumbnails?: YoutubeThumbnail[];
+  };
+  title?: {
+    runs?: Array<{ text?: string }>;
+  };
+};
+
+type YoutubeSecondaryInfoRenderer = {
+  attributedDescription?: {
+    content?: string;
+  };
+  description?: {
+    runs?: Array<{ text?: string }>;
+  };
+};
+
 export class YoutubeParser implements ContentParser {
   match(url: string): boolean {
     return /youtube\.com|youtu\.be/.test(url);
@@ -14,7 +41,7 @@ export class YoutubeParser implements ContentParser {
 
     // 1. Fetch oEmbed as a base for stable data
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    let oembedData: any = {};
+    let oembedData: YoutubeOembed = {};
     try {
         const res = await fetch(oembedUrl);
         if (res.ok) {
@@ -51,15 +78,16 @@ export class YoutubeParser implements ContentParser {
             const initialDataMatch = html.match(/var ytInitialData = (\{.*?\});/);
             if (initialDataMatch) {
                 try {
-                    const data = JSON.parse(initialDataMatch[1]);
+                    const data = JSON.parse(initialDataMatch[1]) as unknown;
                     
                     // Recursive search for specific keys
-                    const findKey = (obj: any, key: string): any => {
+                    const findKey = (obj: unknown, key: string): unknown => {
                         if (obj !== null && typeof obj === 'object') {
-                            if (obj[key]) return obj[key];
-                            for (const k in obj) {
-                                if (Object.prototype.hasOwnProperty.call(obj, k)) {
-                                    const result = findKey(obj[k], key);
+                            const record = obj as Record<string, unknown>;
+                            if (record[key]) return record[key];
+                            for (const k in record) {
+                                if (Object.prototype.hasOwnProperty.call(record, k)) {
+                                    const result = findKey(record[k], key);
                                     if (result) return result;
                                 }
                             }
@@ -68,11 +96,11 @@ export class YoutubeParser implements ContentParser {
                     };
 
                     // Extract avatar from videoOwnerRenderer
-                    const owner = findKey(data, 'videoOwnerRenderer');
+                    const owner = findKey(data, 'videoOwnerRenderer') as YoutubeOwnerRenderer | null;
                     if (owner) {
                         const thumbnails = owner.thumbnail?.thumbnails;
                         if (thumbnails && thumbnails.length > 0) {
-                            avatarUrl = thumbnails[thumbnails.length - 1].url;
+                            avatarUrl = thumbnails[thumbnails.length - 1].url || avatarUrl;
                         }
                         if (!authorName || authorName === 'YouTube User') {
                             authorName = owner.title?.runs?.[0]?.text || authorName;
@@ -80,12 +108,12 @@ export class YoutubeParser implements ContentParser {
                     }
 
                     // Extract detailed description (often more complete than meta tags)
-                    const secondaryInfo = findKey(data, 'videoSecondaryInfoRenderer');
+                    const secondaryInfo = findKey(data, 'videoSecondaryInfoRenderer') as YoutubeSecondaryInfoRenderer | null;
                     if (secondaryInfo) {
                          if (secondaryInfo.attributedDescription?.content) {
                              description = secondaryInfo.attributedDescription.content;
                          } else if (secondaryInfo.description?.runs) {
-                             description = secondaryInfo.description.runs.map((r: any) => r.text).join('');
+                             description = secondaryInfo.description.runs.map((r) => r.text || '').join('');
                          }
                     }
                 } catch (jsonError) {

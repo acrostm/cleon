@@ -12,9 +12,11 @@ import {
   RefreshCw,
   ShieldCheck,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { CommandCenterSurface } from '@/components/command-center/CommandCenterSurface';
 
 type PasteItem = {
   id: string;
@@ -37,7 +39,7 @@ function formatAge(createdAt: string) {
 }
 
 function getPreview(content: string) {
-  return content.replace(/\s+/g, ' ').slice(0, 120);
+  return content.replace(/\s+/g, ' ').slice(0, 140);
 }
 
 export function CrossPlatformClipboard() {
@@ -85,6 +87,7 @@ export function CrossPlatformClipboard() {
       const text = await navigator.clipboard.readText();
 
       if (!text.trim()) {
+        console.error('[Clipboard Empty Error]: navigator.clipboard.readText returned an empty value');
         toast.error('Clipboard is empty');
         return;
       }
@@ -163,158 +166,187 @@ export function CrossPlatformClipboard() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-white/50 bg-white/65 p-4 shadow-[0_24px_70px_rgba(15,23,42,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/70 dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-5">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,0.24),transparent_35%),radial-gradient(circle_at_85%_15%,rgba(236,72,153,0.18),transparent_34%)]" />
-
-      <div className="relative flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="flex size-9 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/20 dark:bg-white dark:text-slate-950">
-                <ClipboardCheck className="size-4" />
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <CommandCenterSurface className="rounded-lg p-4 md:p-5">
+        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="grid size-11 place-items-center rounded-md bg-cyan-300/15 text-cyan-100">
+                <ClipboardCheck className="size-5" />
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-                Universal Paste
-              </h2>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200/80">Device Relay</p>
+                <h1 className="mt-1 text-3xl font-black tracking-normal text-white md:text-5xl">Universal Paste</h1>
+              </div>
             </div>
-            <p className="max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Paste here, then open the base website from any device to copy the same recent history. Recent pastes live in Redis for a short time and are capped at {PASTE_LIMIT}.
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400">
+              Send text, prompts, links, and snippets to your other devices without creating long-term database history.
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => loadPastes()}
-              disabled={isLoading}
-              className="rounded-full bg-white/60 dark:bg-white/5"
-              title="Refresh recent pastes"
-            >
-              <RefreshCw className={isLoading ? 'animate-spin' : ''} />
-              Refresh
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => loadPastes()}
+            disabled={isLoading}
+            className="h-10 rounded-md border-white/10 bg-white/[0.05] text-slate-200 hover:bg-white/[0.1]"
+            title="Refresh recent pastes"
+          >
+            <RefreshCw className={isLoading ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-2 shadow-inner dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="grid gap-3">
+          <div className="overflow-hidden rounded-lg border border-white/10 bg-black/25">
+            <div className="flex items-center justify-between border-b border-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+              <span>Composer</span>
+              <span>{draft.length.toLocaleString()} / 12,000</span>
+            </div>
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Paste text, links, notes, prompts, or snippets here..."
-              className="h-36 w-full resize-none rounded-xl bg-transparent px-3 py-3 text-sm leading-6 text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
+              className="h-56 w-full resize-none bg-transparent px-4 py-4 text-sm leading-7 text-white outline-none placeholder:text-slate-600"
               maxLength={12000}
             />
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 px-2 pt-2 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
-              <span>{draft.length.toLocaleString()} / 12,000 characters</span>
-              <span className="inline-flex items-center gap-1">
-                <ShieldCheck className="size-3.5 text-emerald-500" />
-                Redis only, no database history
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-3 py-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <ShieldCheck className="size-3.5 text-emerald-300" />
+                Redis only, capped at {PASTE_LIMIT}
               </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={handleNativePaste}
+                  variant="outline"
+                  className="h-10 rounded-md border-white/10 bg-white/[0.05] text-slate-200 hover:bg-white/[0.1]"
+                >
+                  <Clipboard />
+                  Paste
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!draft.trim() || isSaving}
+                  className="h-10 rounded-md bg-cyan-300 px-4 font-black text-slate-950 hover:bg-cyan-200"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" /> : <ExternalLink />}
+                  Send
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 md:w-36 md:grid-cols-1">
-            <Button
-              type="button"
-              onClick={handleNativePaste}
-              variant="outline"
-              className="h-12 rounded-2xl bg-white/70 dark:bg-white/5"
-            >
-              <Clipboard />
-              Paste
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={!draft.trim() || isSaving}
-              className="h-12 rounded-2xl bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
-            >
-              {isSaving ? <Loader2 className="animate-spin" /> : <ExternalLink />}
-              Send
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/70 bg-slate-950/[0.03] p-3 dark:border-white/10 dark:bg-white/[0.03]">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            <span>Recent Pastes</span>
-            <div className="flex items-center gap-2">
+          <CommandCenterSurface className="rounded-lg border-white/10 bg-black/20 p-3 shadow-none">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+              <span>Recent Relay</span>
               <button
                 type="button"
                 onClick={handleClear}
                 disabled={!pastes.length}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] normal-case tracking-normal text-slate-600 transition hover:bg-white/70 hover:text-slate-950 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[11px] normal-case tracking-normal text-slate-400 transition hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100 disabled:opacity-40"
               >
                 <Trash2 className="size-3" />
                 Clear
               </button>
             </div>
-          </div>
 
-          <AnimatePresence initial={false}>
-            {isLoading ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid gap-2"
-              >
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-16 animate-pulse rounded-xl bg-white/70 dark:bg-white/5" />
-                ))}
-              </motion.div>
-            ) : pastes.length ? (
-              <motion.div layout className="grid max-h-80 gap-2 overflow-y-auto pr-1">
-                {pastes.map((item) => (
-                  <motion.div
-                    layout
-                    key={item.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="group grid gap-3 rounded-xl border border-slate-200/80 bg-white/80 p-3 shadow-sm transition hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-slate-950/70 dark:hover:border-white/20"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 break-words text-sm leading-6 text-slate-800 dark:text-slate-100">
-                        {getPreview(item.content)}
-                        {item.content.length > 120 && <span className="text-slate-400">...</span>}
-                      </p>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="outline"
-                        onClick={() => handleCopy(item)}
-                        className="shrink-0 rounded-full bg-white/80 dark:bg-white/5"
-                        title="Copy this paste"
-                      >
-                        {copiedId === item.id ? <Check className="text-emerald-500" /> : <Copy />}
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="truncate">From {item.source}</span>
-                      <span>{formatAge(item.createdAt)}</span>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="rounded-xl border border-dashed border-slate-300 bg-white/50 px-4 py-6 text-center text-sm text-slate-500 dark:border-white/15 dark:bg-white/[0.03] dark:text-slate-400"
-              >
-                Nothing here yet. Send a paste from any device, then open the base website somewhere else.
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {isLoading ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="grid gap-2"
+                >
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="h-20 animate-pulse rounded-lg bg-white/[0.06]" />
+                  ))}
+                </motion.div>
+              ) : pastes.length ? (
+                <motion.div layout className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
+                  {pastes.map((item) => (
+                    <motion.div
+                      layout
+                      key={item.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="group grid gap-3 rounded-lg border border-white/10 bg-white/[0.055] p-3 transition hover:border-cyan-300/30 hover:bg-white/[0.08]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 break-words text-sm leading-6 text-slate-200">
+                          {getPreview(item.content)}
+                          {item.content.length > 140 && <span className="text-slate-500">...</span>}
+                        </p>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
+                          onClick={() => handleCopy(item)}
+                          className="shrink-0 rounded-md border-white/10 bg-white/[0.05] text-slate-200 hover:bg-white/[0.1]"
+                          title="Copy this paste"
+                        >
+                          {copiedId === item.id ? <Check className="text-emerald-300" /> : <Copy />}
+                        </Button>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                        <span className="truncate">From {item.source}</span>
+                        <span>{formatAge(item.createdAt)}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="rounded-lg border border-dashed border-white/15 bg-white/[0.035] px-4 py-10 text-center text-sm text-slate-500"
+                >
+                  Nothing here yet. Send a paste from this device, then open Cleon somewhere else.
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CommandCenterSurface>
         </div>
-      </div>
+      </CommandCenterSurface>
+
+      <aside className="grid gap-4 lg:content-start">
+        <CommandCenterSurface className="rounded-lg p-4">
+          <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-cyan-200/80">
+            <Zap className="size-4" />
+            Relay Status
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <RelayMetric label="Items" value={pastes.length} />
+            <RelayMetric label="Limit" value={PASTE_LIMIT} />
+            <RelayMetric label="Chars" value={draft.length} />
+            <RelayMetric label="Poll" value={8} suffix="s" />
+          </div>
+        </CommandCenterSurface>
+        <CommandCenterSurface className="rounded-lg p-4">
+          <p className="text-sm font-bold text-white">Operating logic</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            This relay is intentionally temporary. It is for moving working context between devices, not archiving knowledge.
+          </p>
+        </CommandCenterSurface>
+      </aside>
+    </div>
+  );
+}
+
+function RelayMetric({ label, value, suffix = '' }: { label: string; value: number; suffix?: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+      <p className="text-2xl font-black text-white">
+        {value}
+        {suffix}
+      </p>
+      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
     </div>
   );
 }
