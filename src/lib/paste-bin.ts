@@ -17,6 +17,13 @@ const PASTE_KEY = 'cleon:pastes:shared';
 
 class IncompleteRedisReply extends Error {}
 
+export class PasteStoreConfigurationError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'PasteStoreConfigurationError';
+  }
+}
+
 interface RedisMap {
   [key: string]: RedisReply;
 }
@@ -30,13 +37,23 @@ class RedisHttpResponseError extends Error {
 }
 
 function getRedisUrl() {
-  const redisUrl = process.env.REDIS_URL;
+  const redisUrl = process.env.REDIS_URL
+    || process.env.KV_URL;
 
   if (!redisUrl) {
-    throw new Error('REDIS_URL is not configured');
+    throw new PasteStoreConfigurationError(
+      'Paste relay storage is not configured. Set KV_REST_API_URL/KV_REST_API_TOKEN or a valid REDIS_URL in Vercel.',
+    );
   }
 
   return new URL(redisUrl);
+}
+
+function getRedisRestUrl() {
+  return process.env.KV_REST_API_URL
+    || process.env.UPSTASH_REDIS_REST_URL
+    || process.env.REDIS_REST_URL
+    || process.env.REDIS_URL_REST;
 }
 
 function rateKey(ipAddress: string) {
@@ -204,14 +221,23 @@ function isHttpRedisUrl(redisUrl: URL) {
 }
 
 function getRestAuthToken(redisUrl: URL) {
-  return process.env.UPSTASH_REDIS_REST_TOKEN
+  return process.env.KV_REST_API_TOKEN
+    || process.env.UPSTASH_REDIS_REST_TOKEN
     || process.env.REDIS_REST_TOKEN
     || decodeURIComponent(redisUrl.password || '');
 }
 
 async function runRedisRestCommand(redisUrl: URL, args: Array<string | number>) {
   const token = getRestAuthToken(redisUrl);
-  const response = await fetch(redisUrl.origin, {
+  const endpoint = redisUrl.toString().replace(/\/$/, '');
+
+  if (!token) {
+    throw new PasteStoreConfigurationError(
+      'Paste relay REST token is missing. Set KV_REST_API_TOKEN or UPSTASH_REDIS_REST_TOKEN in Vercel.',
+    );
+  }
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -227,6 +253,28 @@ async function runRedisRestCommand(redisUrl: URL, args: Array<string | number>) 
   }
 
   return payload?.result ?? null;
+}
+
+function toPasteStoreError(error: unknown, redisUrl: URL) {
+  const code = typeof error === 'object' && error && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : '';
+
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    return new PasteStoreConfigurationError(
+      `Paste relay Redis host "${redisUrl.hostname}" cannot be resolved. On Vercel, use KV_REST_API_URL/KV_REST_API_TOKEN or update REDIS_URL to the provider's current public endpoint.`,
+      error instanceof Error ? { cause: error } : undefined,
+    );
+  }
+
+  if (code === 'EPROTO' || (error instanceof Error && /handshake|wrong version|packet length/i.test(error.message))) {
+    return new PasteStoreConfigurationError(
+      `Paste relay Redis connection to "${redisUrl.hostname}" failed during TLS/protocol negotiation. On Vercel, prefer KV_REST_API_URL/KV_REST_API_TOKEN or set REDIS_URL with the exact redis:// or rediss:// endpoint from the Redis provider.`,
+      error instanceof Error ? { cause: error } : undefined,
+    );
+  }
+
+  return error;
 }
 
 async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>, forceTls = false) {
@@ -258,25 +306,43 @@ async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>
     let buffer = Buffer.alloc(0);
     let replyIndex = 0;
     let lastReply: RedisReply = null;
+    let settled = false;
 
     const cleanup = () => {
+      clearTimeout(requestTimer);
       socket.removeAllListeners();
       socket.end();
       socket.destroy();
     };
+
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+
+    const complete = (reply: RedisReply) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(reply);
+    };
+
+    const requestTimer = setTimeout(() => {
+      fail(new Error('Redis request timed out'));
+    }, 5000);
 
     socket.on('connect', () => {
       socket.write(commands.map(encodeCommand).join(''));
     });
 
     socket.on('timeout', () => {
-      cleanup();
-      reject(new Error('Redis request timed out'));
+      fail(new Error('Redis request timed out'));
     });
 
     socket.on('error', (error) => {
-      cleanup();
-      reject(error);
+      fail(error);
     });
 
     socket.on('data', (chunk) => {
@@ -290,19 +356,23 @@ async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>
           replyIndex += 1;
         }
 
-        cleanup();
-        resolve(lastReply);
+        complete(lastReply);
       } catch (error) {
         if (error instanceof IncompleteRedisReply) return;
 
-        cleanup();
-        reject(error);
+        fail(error instanceof Error ? error : new Error('Redis request failed'));
       }
     });
   });
 }
 
 async function runRedisCommand(args: Array<string | number>) {
+  const redisRestUrl = getRedisRestUrl();
+
+  if (redisRestUrl) {
+    return runRedisRestCommand(new URL(redisRestUrl), args);
+  }
+
   const redisUrl = getRedisUrl();
 
   if (isHttpRedisUrl(redisUrl)) {
@@ -313,10 +383,14 @@ async function runRedisCommand(args: Array<string | number>) {
     return await runRedisSocketCommand(redisUrl, args);
   } catch (error) {
     if (redisUrl.protocol === 'redis:' && error instanceof RedisHttpResponseError) {
-      return runRedisSocketCommand(redisUrl, args, true);
+      try {
+        return await runRedisSocketCommand(redisUrl, args, true);
+      } catch (tlsError) {
+        throw toPasteStoreError(tlsError, redisUrl);
+      }
     }
 
-    throw error;
+    throw toPasteStoreError(error, redisUrl);
   }
 }
 

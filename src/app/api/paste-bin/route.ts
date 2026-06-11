@@ -3,6 +3,7 @@ import {
   PASTE_LIMIT,
   PASTE_MAX_CHARS,
   PASTE_TTL_SECONDS,
+  PasteStoreConfigurationError,
   assertPasteRateLimit,
   clearPastes,
   getRecentPastes,
@@ -18,6 +19,14 @@ function getClientIp(req: Request) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function getPublicPasteError(error: unknown, fallback: string) {
+  if (error instanceof PasteStoreConfigurationError) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 function getErrorStack(error: unknown) {
@@ -38,7 +47,7 @@ export async function GET() {
     console.error('[Paste Bin GET Error]:', error);
     return NextResponse.json({
       success: false,
-      error: 'Unable to load recent pastes',
+      error: getPublicPasteError(error, 'Unable to load recent pastes'),
       details: process.env.NODE_ENV !== 'production' ? getErrorStack(error) : undefined,
     }, { status: 500 });
   }
@@ -74,7 +83,9 @@ export async function POST(req: Request) {
     }, { status: 201 });
   } catch (error: unknown) {
     console.error('[Paste Bin POST Error]:', error);
-    const message = getErrorMessage(error, 'Unable to save paste');
+    const message = error instanceof PasteStoreConfigurationError
+      ? error.message
+      : getErrorMessage(error, 'Unable to save paste');
 
     return NextResponse.json({
       success: false,
@@ -93,7 +104,7 @@ export async function DELETE() {
     console.error('[Paste Bin DELETE Error]:', error);
     return NextResponse.json({
       success: false,
-      error: 'Unable to clear recent pastes',
+      error: getPublicPasteError(error, 'Unable to clear recent pastes'),
       details: process.env.NODE_ENV !== 'production' ? getErrorStack(error) : undefined,
     }, { status: 500 });
   }

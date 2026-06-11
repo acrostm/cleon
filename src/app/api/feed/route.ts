@@ -6,6 +6,7 @@ import { isEmbedUrl } from '@/lib/utils';
 import { uploadMediaToR2 } from '@/lib/r2';
 import crypto from 'crypto';
 import { notifyNewPostCreated } from '@/lib/notification';
+import { getFeedSummary } from '@/lib/feed-summary';
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unknown error';
@@ -87,7 +88,9 @@ export async function POST(req: Request) {
       console.error('Failed to send new post Bark notification:', notificationError);
     }
 
-    return NextResponse.json({ success: true, data: post }, { status: 201 });
+    const summary = await getFeedSummary();
+
+    return NextResponse.json({ success: true, data: post, summary }, { status: 201 });
     } catch (error: unknown) {
     console.error('------- [API CRASH] Error parsing feed URL -------');
     console.error(error);
@@ -141,12 +144,15 @@ export async function GET(req: Request) {
         }
 
         // Standard Pagination: Fetch posts with cursor
-        const posts = await prisma.post.findMany({
+        const [posts, summary] = await Promise.all([
+          prisma.post.findMany({
             take: limit + 1, // Fetch one extra to determine if there are more
             cursor: cursor ? { id: cursor } : undefined,
             skip: cursor ? 1 : 0,
             orderBy: { createdAt: 'desc' }
-        });
+          }),
+          getFeedSummary(),
+        ]);
 
         const hasMore = posts.length > limit;
         const data = hasMore ? posts.slice(0, limit) : posts;
@@ -156,7 +162,8 @@ export async function GET(req: Request) {
             success: true, 
             data, 
             nextCursor,
-            hasMore
+            hasMore,
+            summary,
         });
     } catch (error: unknown) {
         console.error('Error fetching timeline:', error);
