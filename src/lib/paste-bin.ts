@@ -17,13 +17,6 @@ const PASTE_KEY = 'cleon:pastes:shared';
 
 class IncompleteRedisReply extends Error {}
 
-export class PasteStoreConfigurationError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = 'PasteStoreConfigurationError';
-  }
-}
-
 interface RedisMap {
   [key: string]: RedisReply;
 }
@@ -221,23 +214,14 @@ function isHttpRedisUrl(redisUrl: URL) {
 }
 
 function getRestAuthToken(redisUrl: URL) {
-  return process.env.KV_REST_API_TOKEN
-    || process.env.UPSTASH_REDIS_REST_TOKEN
+  return process.env.UPSTASH_REDIS_REST_TOKEN
     || process.env.REDIS_REST_TOKEN
     || decodeURIComponent(redisUrl.password || '');
 }
 
 async function runRedisRestCommand(redisUrl: URL, args: Array<string | number>) {
   const token = getRestAuthToken(redisUrl);
-  const endpoint = redisUrl.toString().replace(/\/$/, '');
-
-  if (!token) {
-    throw new PasteStoreConfigurationError(
-      'Paste relay REST token is missing. Set KV_REST_API_TOKEN or UPSTASH_REDIS_REST_TOKEN in Vercel.',
-    );
-  }
-
-  const response = await fetch(endpoint, {
+  const response = await fetch(redisUrl.origin, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -253,28 +237,6 @@ async function runRedisRestCommand(redisUrl: URL, args: Array<string | number>) 
   }
 
   return payload?.result ?? null;
-}
-
-function toPasteStoreError(error: unknown, redisUrl: URL) {
-  const code = typeof error === 'object' && error && 'code' in error
-    ? String((error as { code?: unknown }).code)
-    : '';
-
-  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
-    return new PasteStoreConfigurationError(
-      `Paste relay Redis host "${redisUrl.hostname}" cannot be resolved. On Vercel, use KV_REST_API_URL/KV_REST_API_TOKEN or update REDIS_URL to the provider's current public endpoint.`,
-      error instanceof Error ? { cause: error } : undefined,
-    );
-  }
-
-  if (code === 'EPROTO' || (error instanceof Error && /handshake|wrong version|packet length/i.test(error.message))) {
-    return new PasteStoreConfigurationError(
-      `Paste relay Redis connection to "${redisUrl.hostname}" failed during TLS/protocol negotiation. On Vercel, prefer KV_REST_API_URL/KV_REST_API_TOKEN or set REDIS_URL with the exact redis:// or rediss:// endpoint from the Redis provider.`,
-      error instanceof Error ? { cause: error } : undefined,
-    );
-  }
-
-  return error;
 }
 
 async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>, forceTls = false) {
@@ -367,12 +329,6 @@ async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>
 }
 
 async function runRedisCommand(args: Array<string | number>) {
-  const redisRestUrl = getRedisRestUrl();
-
-  if (redisRestUrl) {
-    return runRedisRestCommand(new URL(redisRestUrl), args);
-  }
-
   const redisUrl = getRedisUrl();
 
   if (isHttpRedisUrl(redisUrl)) {
@@ -383,14 +339,10 @@ async function runRedisCommand(args: Array<string | number>) {
     return await runRedisSocketCommand(redisUrl, args);
   } catch (error) {
     if (redisUrl.protocol === 'redis:' && error instanceof RedisHttpResponseError) {
-      try {
-        return await runRedisSocketCommand(redisUrl, args, true);
-      } catch (tlsError) {
-        throw toPasteStoreError(tlsError, redisUrl);
-      }
+      return runRedisSocketCommand(redisUrl, args, true);
     }
 
-    throw toPasteStoreError(error, redisUrl);
+    throw error;
   }
 }
 

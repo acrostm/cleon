@@ -51,20 +51,6 @@ const filterOptions: Array<{ value: PlatformFilter; label: string }> = [
   ...platformValues.map((value) => ({ value, label: platformMeta[value].label })),
 ];
 
-type FeedSummary = {
-  totalPosts: number;
-  totalMedia: number;
-  totalSources: number;
-  platformCounts: Record<string, number>;
-};
-
-const emptyFeedSummary: FeedSummary = {
-  totalPosts: 0,
-  totalMedia: 0,
-  totalSources: 0,
-  platformCounts: {},
-};
-
 function uniqueById(items: Post[]) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -74,22 +60,6 @@ function uniqueById(items: Post[]) {
   });
 }
 
-function addPostsToSummary(summary: FeedSummary, items: Post[]) {
-  if (!items.length) return summary;
-
-  const platformCounts = { ...summary.platformCounts };
-  items.forEach((post) => {
-    platformCounts[post.platform] = (platformCounts[post.platform] ?? 0) + 1;
-  });
-
-  return {
-    totalPosts: summary.totalPosts + items.length,
-    totalMedia: summary.totalMedia + items.reduce((total, post) => total + post.mediaUrls.length, 0),
-    totalSources: Object.keys(platformCounts).length,
-    platformCounts,
-  };
-}
-
 export function HomeExperience() {
   const scope = useRef<HTMLDivElement>(null);
   const topPostIdRef = useRef<string | null>(null);
@@ -97,7 +67,6 @@ export function HomeExperience() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [summary, setSummary] = useState<FeedSummary>(emptyFeedSummary);
   const [filter, setFilter] = useState<PlatformFilter>("ALL");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -149,16 +118,15 @@ export function HomeExperience() {
     return posts.filter((post) => post.platform === filter);
   }, [filter, posts]);
 
-  const loadedPlatformCounts = useMemo(() => {
+  const platformCounts = useMemo(() => {
     const counts = new Map<Platform, number>();
     posts.forEach((post) => counts.set(post.platform, (counts.get(post.platform) ?? 0) + 1));
     return counts;
   }, [posts]);
 
   const newestPost = posts[0];
-  const totalPosts = summary.totalPosts || posts.length;
-  const totalMedia = summary.totalMedia || posts.reduce((total, post) => total + post.mediaUrls.length, 0);
-  const activeSources = summary.totalSources || loadedPlatformCounts.size;
+  const mediaCount = posts.reduce((total, post) => total + post.mediaUrls.length, 0);
+  const activeSources = platformCounts.size;
 
   const fetchInitialPosts = useCallback(async () => {
     setIsLoading(true);
@@ -169,7 +137,6 @@ export function HomeExperience() {
         setPosts(data.data);
         setNextCursor(data.nextCursor);
         setHasMore(data.hasMore);
-        if (data.summary) setSummary(data.summary);
       } else {
         console.error("[Feed Initial API Error]:", data.error, data.details || "");
         toast.error(data.error || "Failed to fetch timeline");
@@ -198,7 +165,6 @@ export function HomeExperience() {
         setPosts((prev) => uniqueById([...prev, ...data.data]));
         setNextCursor(data.nextCursor);
         setHasMore(data.hasMore);
-        if (data.summary) setSummary(data.summary);
       } else {
         console.error("[Feed More API Error]:", data.error, data.details || "");
         toast.error(data.error || "Failed to fetch more posts");
@@ -224,11 +190,6 @@ export function HomeExperience() {
       if (data.success) {
         setPosts((prev) => uniqueById([data.data, ...prev]));
         setPendingPosts((prev) => prev.filter((post) => post.id !== data.data.id));
-        if (data.summary) {
-          setSummary(data.summary);
-        } else {
-          setSummary((current) => addPostsToSummary(current, [data.data]));
-        }
         toast.success("Captured into command center");
         return true;
       }
@@ -253,7 +214,6 @@ export function HomeExperience() {
       const data = await res.json();
 
       if (data.success) {
-        if (data.summary) setSummary(data.summary);
         setPosts((prev) => prev.filter((post) => post.id !== postId));
         setPendingPosts((prev) => prev.filter((post) => post.id !== postId));
         toast.success("Post removed from timeline");
@@ -281,13 +241,10 @@ export function HomeExperience() {
         const data = await res.json();
 
         if (data.success && data.data.length > 0) {
-          const existing = new Set([...pendingPosts, ...posts].map((post) => post.id));
-          const newPosts = data.data.filter((post: Post) => !existing.has(post.id));
-
-          if (newPosts.length) {
-            setPendingPosts((current) => uniqueById([...newPosts, ...current]));
-            setSummary((summaryValue) => addPostsToSummary(summaryValue, newPosts));
-          }
+          setPendingPosts((current) => {
+            const existing = new Set([...current, ...posts].map((post) => post.id));
+            return [...data.data.filter((post: Post) => !existing.has(post.id)), ...current];
+          });
         } else if (!data.success) {
           console.error("[Feed Poll API Error]:", data.error, data.details || "");
         }
@@ -298,7 +255,7 @@ export function HomeExperience() {
 
     const intervalId = window.setInterval(pollNewPosts, 6000);
     return () => window.clearInterval(intervalId);
-  }, [isLoading, pendingPosts, posts]);
+  }, [isLoading, posts]);
 
   useEffect(() => {
     if (!isLoading && posts.length > 0 && !hasScrolledRef.current && window.location.hash) {
@@ -354,9 +311,9 @@ export function HomeExperience() {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <Metric label="Posts" value={totalPosts} />
+              <Metric label="Posts" value={posts.length} />
               <Metric label="Sources" value={activeSources} />
-              <Metric label="Media" value={totalMedia} />
+              <Metric label="Media" value={mediaCount} />
               <Metric label="Queued" value={pendingPosts.length} />
             </div>
           </CommandCenterSurface>
@@ -391,9 +348,7 @@ export function HomeExperience() {
               </span>
               {filterOptions.map((option) => {
                 const active = filter === option.value;
-                const count = option.value === "ALL"
-                  ? totalPosts
-                  : summary.platformCounts[option.value] ?? loadedPlatformCounts.get(option.value) ?? 0;
+                const count = option.value === "ALL" ? posts.length : platformCounts.get(option.value) ?? 0;
                 return (
                   <button
                     key={option.value}
