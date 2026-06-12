@@ -11,14 +11,16 @@ import { FormattedText } from './FormattedText';
 import { toast } from 'sonner';
 import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 import { getPostPreview, getPostTitle, platformMeta, type Post } from '@/lib/post-types';
+import { useHydrated } from '@/lib/use-hydrated';
 
 export type { Post } from '@/lib/post-types';
 
 export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; onClick?: () => void }) {
-  const date = new Date(post.createdAt);
-  const timeStr = format(date, 'HH:mm');
-  const dateStr = format(date, 'MMM dd');
-  const fullDateStr = format(date, 'yyyy-MM-dd');
+  const isHydrated = useHydrated();
+  const date = isHydrated ? new Date(post.createdAt) : null;
+  const timeStr = date ? format(date, 'HH:mm') : '';
+  const dateStr = date ? format(date, 'MMM dd') : '';
+  const fullDateStr = date ? format(date, 'yyyy-MM-dd') : '';
   const title = getPostTitle(post);
   const body = getPostPreview(post, 220);
   const meta = platformMeta[post.platform];

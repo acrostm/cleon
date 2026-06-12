@@ -17,6 +17,13 @@ const PASTE_KEY = 'cleon:pastes:shared';
 
 class IncompleteRedisReply extends Error {}
 
+export class PasteStoreConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PasteStoreConfigurationError';
+  }
+}
+
 interface RedisMap {
   [key: string]: RedisReply;
 }
@@ -44,6 +51,7 @@ function getRedisUrl() {
 
 function getRedisRestUrl() {
   return process.env.KV_REST_API_URL
+    || process.env.KV_REST_API_REDIS_URL
     || process.env.UPSTASH_REDIS_REST_URL
     || process.env.REDIS_REST_URL
     || process.env.REDIS_URL_REST;
@@ -214,18 +222,31 @@ function isHttpRedisUrl(redisUrl: URL) {
 }
 
 function getRestAuthToken(redisUrl: URL) {
-  return process.env.UPSTASH_REDIS_REST_TOKEN
+  return process.env.KV_REST_API_TOKEN
+    || process.env.UPSTASH_REDIS_REST_TOKEN
     || process.env.REDIS_REST_TOKEN
     || decodeURIComponent(redisUrl.password || '');
 }
 
 async function runRedisRestCommand(redisUrl: URL, args: Array<string | number>) {
   const token = getRestAuthToken(redisUrl);
-  const response = await fetch(redisUrl.origin, {
+
+  if (!token) {
+    throw new PasteStoreConfigurationError(
+      'Paste relay REST token is missing. Set KV_REST_API_TOKEN, UPSTASH_REDIS_REST_TOKEN, or REDIS_REST_TOKEN in Vercel.',
+    );
+  }
+
+  const endpointUrl = new URL(redisUrl);
+  endpointUrl.username = '';
+  endpointUrl.password = '';
+  const endpoint = endpointUrl.toString().replace(/\/$/, '');
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(args),
   });
@@ -237,6 +258,33 @@ async function runRedisRestCommand(redisUrl: URL, args: Array<string | number>) 
   }
 
   return payload?.result ?? null;
+}
+
+function toPasteStoreError(error: unknown, redisUrl: URL) {
+  const redisError = error instanceof Error ? error : new Error('Redis request failed');
+  const errorWithCode = redisError as Error & { code?: string };
+  const code = errorWithCode.code;
+  const message = redisError.message || '';
+
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    return new PasteStoreConfigurationError(
+      `Paste relay Redis host "${redisUrl.hostname}" cannot be resolved. Prefer Vercel KV/Upstash REST env vars (KV_REST_API_URL and KV_REST_API_TOKEN), or replace REDIS_URL with a reachable redis/rediss endpoint.`,
+    );
+  }
+
+  if (code === 'ECONNREFUSED' || code === 'ETIMEDOUT') {
+    return new PasteStoreConfigurationError(
+      `Paste relay Redis host "${redisUrl.hostname}" is not reachable from Vercel. Use the provider REST endpoint or verify the REDIS_URL host, port, TLS mode, and network access.`,
+    );
+  }
+
+  if (code === 'EPROTO' || /handshake|wrong version|packet length|ssl|tls/i.test(message)) {
+    return new PasteStoreConfigurationError(
+      `Paste relay Redis endpoint "${redisUrl.hostname}" failed TLS/protocol negotiation. Use a rediss:// URL for TLS sockets or set KV_REST_API_URL/KV_REST_API_TOKEN for REST access.`,
+    );
+  }
+
+  return redisError;
 }
 
 async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>, forceTls = false) {
@@ -329,6 +377,11 @@ async function runRedisSocketCommand(redisUrl: URL, args: Array<string | number>
 }
 
 async function runRedisCommand(args: Array<string | number>) {
+  const redisRestUrl = getRedisRestUrl();
+  if (redisRestUrl) {
+    return runRedisRestCommand(new URL(redisRestUrl), args);
+  }
+
   const redisUrl = getRedisUrl();
 
   if (isHttpRedisUrl(redisUrl)) {
@@ -339,10 +392,14 @@ async function runRedisCommand(args: Array<string | number>) {
     return await runRedisSocketCommand(redisUrl, args);
   } catch (error) {
     if (redisUrl.protocol === 'redis:' && error instanceof RedisHttpResponseError) {
-      return runRedisSocketCommand(redisUrl, args, true);
+      try {
+        return await runRedisSocketCommand(redisUrl, args, true);
+      } catch (tlsError) {
+        throw toPasteStoreError(tlsError, redisUrl);
+      }
     }
 
-    throw error;
+    throw toPasteStoreError(error, redisUrl);
   }
 }
 

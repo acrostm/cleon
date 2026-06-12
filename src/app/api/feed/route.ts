@@ -120,6 +120,7 @@ export async function GET(req: Request) {
         const since = searchParams.get('since');
         const limitStr = searchParams.get('limit');
         const limit = limitStr ? parseInt(limitStr) : 10;
+        const includeSummary = searchParams.get('includeSummary') === '1' || (!cursor && !since);
 
         // Efficient Polling: Fetch only new items since the top item
         if (since) {
@@ -151,7 +152,7 @@ export async function GET(req: Request) {
             skip: cursor ? 1 : 0,
             orderBy: { createdAt: 'desc' }
           }),
-          getFeedSummary(),
+          includeSummary ? getFeedSummary() : Promise.resolve(null),
         ]);
 
         const hasMore = posts.length > limit;
@@ -163,7 +164,7 @@ export async function GET(req: Request) {
             data, 
             nextCursor,
             hasMore,
-            summary,
+            ...(summary ? { summary } : {}),
         });
     } catch (error: unknown) {
         console.error('Error fetching timeline:', error);
