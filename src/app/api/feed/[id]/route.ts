@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { deleteMediaFromR2 } from '@/lib/r2';
+import { getFeedSummary } from '@/lib/feed-summary';
 
 export async function DELETE(
   req: Request,
@@ -36,7 +37,13 @@ export async function DELETE(
       where: { id }
     });
 
-    return NextResponse.json({ success: true, message: 'Post and associated media deleted successfully' });
+    const summary = await getFeedSummary();
+
+    return NextResponse.json({
+      success: true,
+      message: 'Post and associated media deleted successfully',
+      summary,
+    });
   } catch (error: unknown) {
     console.error('[API Error] Failed to delete post:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to delete post';
@@ -46,5 +53,4 @@ export async function DELETE(
     }, { status: 500 });
   }
 }
-
 

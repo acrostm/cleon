@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { InfiniteScroll } from './InfiniteScroll';
 import { GsapReveal } from '@/components/command-center/GsapReveal';
 import { CommandCenterSurface } from '@/components/command-center/CommandCenterSurface';
-import { Inbox, Radar } from 'lucide-react';
+import { Inbox, Radar, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   posts: Post[];
@@ -16,6 +17,7 @@ interface Props {
   onLoadMore: () => void;
   hasMore: boolean;
   isLoadingMore: boolean;
+  canLoadMoreWhenEmpty?: boolean;
 }
 
 export const Timeline = memo(function Timeline({ 
@@ -25,7 +27,8 @@ export const Timeline = memo(function Timeline({
   onPostClick,
   onLoadMore,
   hasMore,
-  isLoadingMore
+  isLoadingMore,
+  canLoadMoreWhenEmpty = false,
 }: Props) {
   return (
     <div className="relative pb-10">
@@ -64,10 +67,32 @@ export const Timeline = memo(function Timeline({
               <span className="mx-auto grid size-12 place-items-center rounded-lg border border-white/10 bg-white/[0.06] text-slate-300">
                 <Inbox className="size-5" />
               </span>
-              <h3 className="text-xl font-black text-white">No captures in this view</h3>
+              <h3 className="text-xl font-black text-white">
+                {canLoadMoreWhenEmpty ? 'No loaded captures for this filter' : 'No captures in this view'}
+              </h3>
               <p className="text-sm leading-6 text-slate-400">
-                Change the platform filter or collect a new link from the capture panel.
+                {canLoadMoreWhenEmpty
+                  ? 'Older matching captures may still be outside the loaded window. Continue searching the archive.'
+                  : 'Change the platform filter or collect a new link from the capture panel.'}
               </p>
+              {canLoadMoreWhenEmpty && (
+                <div className="mx-auto mt-2 grid gap-3">
+                  <Button
+                    type="button"
+                    onClick={onLoadMore}
+                    disabled={isLoadingMore}
+                    className="h-10 rounded-md bg-cyan-300 px-4 font-black text-slate-950 hover:bg-cyan-200"
+                  >
+                    <RefreshCw className={`mr-2 size-4 ${isLoadingMore ? 'animate-spin' : ''}`} />
+                    {isLoadingMore ? 'Searching...' : 'Search older captures'}
+                  </Button>
+                  <InfiniteScroll
+                    onLoadMore={onLoadMore}
+                    hasMore={hasMore}
+                    isLoadingMore={isLoadingMore}
+                  />
+                </div>
+              )}
             </div>
           </CommandCenterSurface>
         ) : (

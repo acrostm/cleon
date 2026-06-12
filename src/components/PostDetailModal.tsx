@@ -15,6 +15,7 @@ import { getPlatformLogo } from '@/lib/platforms';
 import { FormattedText } from './FormattedText';
 import { isVideoUrl, isEmbedUrl } from '@/lib/utils';
 import { getPostTitle, platformMeta } from '@/lib/post-types';
+import { useHydrated } from '@/lib/use-hydrated';
 import { format } from 'date-fns';
 
 interface Props {
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function PostDetailModal({ post, onClose, onDelete }: Props) {
+  const isHydrated = useHydrated();
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -32,7 +34,7 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
   const title = getPostTitle(post);
   const body = post.contentText || '';
   const meta = platformMeta[post.platform];
-  const createdAt = format(new Date(post.createdAt), 'yyyy-MM-dd HH:mm');
+  const createdAt = isHydrated ? format(new Date(post.createdAt), 'yyyy-MM-dd HH:mm') : '';
 
   const handleDelete = async () => {
     if (!confirmDelete) {
@@ -50,9 +52,9 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
 
   return (
     <Dialog open={!!post} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent showCloseButton className="flex max-h-[92vh] w-[96vw] max-w-4xl overflow-hidden rounded-lg border-white/10 bg-[#0b0f17]/95 p-0 text-slate-100 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:rounded-lg">
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/10 bg-[#0b0f17]/80 p-4 backdrop-blur-xl md:p-5">
+      <DialogContent showCloseButton className="max-h-[92vh] w-[96vw] max-w-3xl overflow-hidden rounded-lg border-white/10 bg-[#0b0f17]/95 p-0 text-slate-100 shadow-[0_40px_140px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:rounded-lg">
+        <div className="flex max-h-[92vh] min-h-0 flex-col">
+          <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/10 bg-[#0b0f17]/85 p-4 pr-12 backdrop-blur-xl md:p-5 md:pr-14">
             <div className="flex min-w-0 items-center gap-3">
               <Avatar className="size-10 border border-white/15 shadow-lg">
                 <AvatarImage src={post.avatarUrl} alt={post.authorName} className="object-cover" />
@@ -66,93 +68,108 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
                 </div>
               </div>
             </div>
-            <img
-              src={getPlatformLogo(post.platform, post.originalUrl)}
-              alt={post.platform}
-              className="size-8 rounded-md border border-white/10 bg-white/10 p-1"
-            />
-          </div>
-
-          <div className="mx-auto grid max-w-3xl gap-7 px-5 py-6 md:px-8 md:py-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-slate-400">
-                <Clock className="size-3.5" />
-                {createdAt}
-              </div>
-              <h2 className="text-2xl font-black leading-tight tracking-normal text-white md:text-4xl">
-                <FormattedText text={title} />
-              </h2>
-              {body && (
-                <FormattedText
-                  text={body}
-                  className="block text-[15px] leading-8 text-slate-200 md:text-base"
-                />
-              )}
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="ghost"
+                nativeButton={false}
+                className="hidden h-9 rounded-md px-3 text-xs font-bold text-cyan-100 transition hover:bg-cyan-300/10 sm:inline-flex"
+                render={
+                  <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
+                }
+              >
+                <ExternalLink className="mr-2 size-3.5" />
+                Source
+              </Button>
+              <img
+                src={getPlatformLogo(post.platform, post.originalUrl)}
+                alt={post.platform}
+                className="size-8 rounded-md border border-white/10 bg-white/10 p-1"
+              />
             </div>
-
-            {post.mediaUrls.length > 0 && (
-              <div className="space-y-4">
-                {post.mediaUrls.map((url, i) => {
-                  const isVideo = isVideoUrl(url);
-                  const isEmbed = isEmbedUrl(url);
-                  const secureUrl = url.replace(/^http:\/\//i, 'https://');
-                  const commonClass = "h-auto max-h-[78vh] w-full object-contain transition duration-700 group-hover:scale-[1.01]";
-
-                  return (
-                    <div key={i} className="group overflow-hidden rounded-lg border border-white/10 bg-black/35">
-                      {isEmbed ? (
-                        <iframe
-                          src={secureUrl}
-                          allowFullScreen={true}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          referrerPolicy="strict-origin-when-cross-origin"
-                          className="aspect-video w-full border-0 bg-black"
-                        />
-                      ) : isVideo ? (
-                        <video
-                          src={secureUrl}
-                          controls
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          className={commonClass}
-                        />
-                      ) : (
-                        <img
-                          src={secureUrl}
-                          referrerPolicy="no-referrer"
-                          alt={`Media ${i}`}
-                          className={commonClass}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
-        </div>
 
-        <DialogFooter className="shrink-0 gap-3 border-t border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
-          <Button
-            variant="ghost"
-            nativeButton={false}
-            className="h-10 rounded-md px-4 font-bold text-cyan-100 transition hover:bg-cyan-300/10"
-            render={
-              <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
-            }
-          >
-            <ExternalLink className="mr-2 size-4" />
-            Open source
-          </Button>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <article className="mx-auto grid max-w-3xl gap-7 px-5 py-6 md:px-8 md:py-8">
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-slate-400">
+                  <Clock className="size-3.5" />
+                  {createdAt || '...'}
+                </div>
+                <h2 className="text-2xl font-black leading-tight tracking-normal text-white md:text-4xl">
+                  <FormattedText text={title} />
+                </h2>
+                {body && (
+                  <FormattedText
+                    text={body}
+                    className="block text-[15px] leading-8 text-slate-200 md:text-base"
+                  />
+                )}
+              </div>
 
-          <div className="flex w-full items-center gap-3 sm:w-auto">
+              {post.mediaUrls.length > 0 && (
+                <div className="space-y-4">
+                  {post.mediaUrls.map((url, i) => {
+                    const isVideo = isVideoUrl(url);
+                    const isEmbed = isEmbedUrl(url);
+                    const secureUrl = url.replace(/^http:\/\//i, 'https://');
+                    const commonClass = "h-auto max-h-[78vh] w-full object-contain transition duration-700 group-hover:scale-[1.01]";
+
+                    return (
+                      <div key={i} className="group overflow-hidden rounded-lg border border-white/10 bg-black/35">
+                        {isEmbed ? (
+                          <iframe
+                            src={secureUrl}
+                            allowFullScreen={true}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerPolicy="strict-origin-when-cross-origin"
+                            className="aspect-video w-full border-0 bg-black"
+                          />
+                        ) : isVideo ? (
+                          <video
+                            src={secureUrl}
+                            controls
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            className={commonClass}
+                          />
+                        ) : (
+                          <img
+                            src={secureUrl}
+                            referrerPolicy="no-referrer"
+                            alt={`Media ${i + 1}`}
+                            className={commonClass}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </article>
+          </div>
+
+          <DialogFooter className="shrink-0 gap-3 border-t border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between md:p-5">
+            <Button
+              variant="ghost"
+              nativeButton={false}
+              className="h-10 w-full rounded-md px-4 font-bold text-cyan-100 transition hover:bg-cyan-300/10 sm:hidden"
+              render={
+                <a href={post.originalUrl} target="_blank" rel="noopener noreferrer" />
+              }
+            >
+              <ExternalLink className="mr-2 size-4" />
+              Open source
+            </Button>
+            <p className="hidden min-w-0 flex-1 truncate text-xs text-slate-500 sm:block">
+              {confirmDelete ? 'Click confirm to permanently remove this capture.' : post.originalUrl}
+            </p>
             <Button
               variant={confirmDelete ? "destructive" : "outline"}
               disabled={isDeleting}
               onClick={handleDelete}
-              className={`h-10 flex-1 rounded-md border-white/10 px-4 font-bold transition duration-300 sm:flex-none ${confirmDelete ? 'bg-rose-500/20 text-rose-100 ring-3 ring-rose-400/20' : 'bg-white/[0.04] text-slate-200 hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100'
+              className={`h-10 w-full rounded-md border-white/10 px-4 font-bold transition duration-300 sm:w-auto ${confirmDelete ? 'bg-rose-500/20 text-rose-100 ring-3 ring-rose-400/20' : 'bg-white/[0.04] text-slate-200 hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100'
                 }`}
             >
               {isDeleting ? (
@@ -160,10 +177,10 @@ export function PostDetailModal({ post, onClose, onDelete }: Props) {
               ) : (
                 confirmDelete ? <ShieldAlert className="mr-2 size-4" /> : <Trash2 className="mr-2 size-4" />
               )}
-              {isDeleting ? "Deleting..." : confirmDelete ? "Confirm delete" : "Delete"}
+              {isDeleting ? "Deleting..." : confirmDelete ? "Confirm" : "Delete"}
             </Button>
-          </div>
-        </DialogFooter>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

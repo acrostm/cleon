@@ -122,7 +122,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    background: #06080d;
   }
   html {
     @apply font-sans;
