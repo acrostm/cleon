@@ -7,6 +7,7 @@ import {
   updateBarkConfig,
 } from "@/lib/bark-config";
 import { requireOwnerRequest } from "@/lib/auth/session";
+import { validateUrl } from "@/lib/utils/url";
 
 export async function GET(req: NextRequest) {
   const unauthorized = requireOwnerRequest(req);
@@ -34,6 +35,13 @@ export async function POST(req: NextRequest) {
     if (!body.name || !body.url || !body.defaultIcon) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    if (!validateUrl(body.url)) {
+      return NextResponse.json(
+        { error: "Invalid or unsafe Bark URL" },
         { status: 400 },
       );
     }
@@ -69,6 +77,13 @@ export async function PUT(req: NextRequest) {
     if (!body.id) {
       return NextResponse.json(
         { error: "Missing configuration id" },
+        { status: 400 },
+      );
+    }
+
+    if (body.url !== undefined && !validateUrl(body.url)) {
+      return NextResponse.json(
+        { error: "Invalid or unsafe Bark URL" },
         { status: 400 },
       );
     }

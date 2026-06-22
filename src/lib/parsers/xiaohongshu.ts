@@ -1,4 +1,5 @@
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl } from '@/lib/utils/url';
 
 type XhsUser = {
   nickname?: string;
@@ -43,19 +44,24 @@ type XhsState = {
 
 export class XiaohongshuParser implements ContentParser {
   match(url: string): boolean {
-    return /xiaohongshu\.com|xhslink\.com/.test(url);
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return hostname === 'xiaohongshu.com' || hostname.endsWith('.xiaohongshu.com') || hostname === 'xhslink.com' || hostname.endsWith('.xhslink.com');
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
     try {
       // Simulate normal mobile browser fetch to follow redirects and get HTML
-      const res = await fetch(url, {
+      const res = await fetchValidatedUrl(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         }
-      });
+      }, { timeoutMs: 12_000, maxBytes: 5_000_000 });
       
       const html = await res.text();
       

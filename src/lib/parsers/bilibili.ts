@@ -1,8 +1,14 @@
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl } from '@/lib/utils/url';
 
 export class BilibiliParser implements ContentParser {
   match(url: string): boolean {
-    return /bilibili\.com|b23\.tv/.test(url);
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return hostname === 'b23.tv' || hostname === 'bilibili.com' || hostname.endsWith('.bilibili.com');
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
@@ -12,12 +18,12 @@ export class BilibiliParser implements ContentParser {
     // Follow redirect if it's a shortlink without a BV id
     if (!targetUrl.includes('BV')) {
        try {
-           const redirectRes = await fetch(url, {
+           const redirectRes = await fetchValidatedUrl(url, {
                method: 'HEAD',
                headers: {
                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
                }
-           });
+           }, { timeoutMs: 10_000 });
            targetUrl = redirectRes.url;
        } catch (error) {
            console.log("Failed to resolve Bilibili shortlink", error);
@@ -35,11 +41,11 @@ export class BilibiliParser implements ContentParser {
 
     const apiUrl = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
 
-    const res = await fetch(apiUrl, {
+    const res = await fetchValidatedUrl(apiUrl, {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
-    });
+    }, { timeoutMs: 10_000, maxBytes: 1_000_000 });
     
     if (!res.ok) {
       throw new Error(`Failed to fetch Bilibili API data: ${res.statusText}`);

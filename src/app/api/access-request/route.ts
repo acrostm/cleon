@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const userAgent = getUserAgentSummary(req);
 
     await assertWindowRateLimit(
-      hashedRateLimitKey('access-request', [ip, userAgent]),
+      hashedRateLimitKey('access-request', [ip]),
       3,
       60 * 60,
       'Too many access requests. Try again later.',

@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl } from '@/lib/utils/url';
 
 type YoutubeOembed = {
   author_name?: string;
@@ -28,9 +29,22 @@ type YoutubeSecondaryInfoRenderer = {
   };
 };
 
+const normalizeYoutubeVideoId = (value: string | null | undefined) =>
+  value && /^[a-zA-Z0-9_-]{11}$/.test(value) ? value : null;
+
 export class YoutubeParser implements ContentParser {
   match(url: string): boolean {
-    return /youtube\.com|youtu\.be/.test(url);
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return (
+        hostname === 'youtu.be' ||
+        hostname === 'youtube.com' ||
+        hostname === 'www.youtube.com' ||
+        hostname === 'm.youtube.com'
+      );
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
@@ -43,7 +57,7 @@ export class YoutubeParser implements ContentParser {
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
     let oembedData: YoutubeOembed = {};
     try {
-        const res = await fetch(oembedUrl);
+        const res = await fetchValidatedUrl(oembedUrl, {}, { timeoutMs: 10_000, maxBytes: 1_000_000 });
         if (res.ok) {
             oembedData = await res.json();
         }
@@ -58,11 +72,11 @@ export class YoutubeParser implements ContentParser {
     let title = oembedData.title || 'YouTube Video';
 
     try {
-        const pageRes = await fetch(url, {
+        const pageRes = await fetchValidatedUrl(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
-        });
+        }, { timeoutMs: 12_000, maxBytes: 4_000_000 });
 
         if (pageRes.ok) {
             const html = await pageRes.text();
@@ -139,7 +153,26 @@ export class YoutubeParser implements ContentParser {
   }
 
   private extractVideoId(url: string): string | null {
-    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/);
-    return match ? match[1] : null;
+    try {
+      const parsed = new URL(url);
+      const hostname = parsed.hostname.toLowerCase();
+
+      if (hostname === 'youtu.be') {
+        return normalizeYoutubeVideoId(parsed.pathname.split('/').filter(Boolean)[0]);
+      }
+
+      if (parsed.pathname === '/watch') {
+        return normalizeYoutubeVideoId(parsed.searchParams.get('v'));
+      }
+
+      const pathParts = parsed.pathname.split('/').filter(Boolean);
+      if (pathParts[0] === 'shorts' || pathParts[0] === 'embed' || pathParts[0] === 'v') {
+        return normalizeYoutubeVideoId(pathParts[1]);
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
   }
 }

@@ -1,5 +1,8 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import crypto from 'crypto';
+import { fetchValidatedUrl, isSafeDataImageUrl, redactUrlForLog, validateUrl } from '@/lib/utils/url';
+
+const MAX_R2_MEDIA_BYTES = 50 * 1024 * 1024;
 
 const r2Client = new S3Client({
   region: "auto",
@@ -56,7 +59,7 @@ export async function deleteMediaFromR2(url: string): Promise<boolean> {
  * @returns The public R2 URL or null if upload fails.
  */
 export async function uploadMediaToR2(url: string, postId: string, referer?: string): Promise<string | null> {
-  console.log(`[R2 Trace] Starting upload for: ${url.startsWith('data:') ? 'base64 image' : url}`);
+  console.log(`[R2 Trace] Starting upload for: ${url.startsWith('data:') ? 'base64 image' : redactUrlForLog(url)}`);
   if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_BUCKET_NAME) {
     console.warn("[R2 Trace] Missing configuration, skipping upload.");
     return null;
@@ -68,15 +71,23 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
     let extension = "jpg";
 
     if (url.startsWith('data:')) {
+      if (!isSafeDataImageUrl(url, MAX_R2_MEDIA_BYTES)) {
+        throw new Error("Invalid or oversized base64 data image");
+      }
+
       const match = url.match(/^data:([^;]+);base64,(.+)$/);
       if (!match) throw new Error("Invalid base64 data URL");
-      contentType = match[1];
+      contentType = match[1].toLowerCase();
       buffer = Buffer.from(match[2], 'base64');
       
       if (contentType.includes("image/png")) extension = "png";
       else if (contentType.includes("image/gif")) extension = "gif";
       else if (contentType.includes("image/webp")) extension = "webp";
     } else {
+      if (!validateUrl(url)) {
+        throw new Error("Invalid or unsafe media URL");
+      }
+
       const lowerUrl = url.toLowerCase();
       const isXhs = lowerUrl.includes('xiaohongshu.com') || lowerUrl.includes('xhslink.com') || lowerUrl.includes('sns-webpic');
       const isTwitter = lowerUrl.includes('twimg.com') || lowerUrl.includes('twitter.com');
@@ -94,7 +105,7 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
         headers['Referer'] = 'https://twitter.com/';
       }
 
-      let response = await fetch(url, { headers });
+      let response = await fetchValidatedUrl(url, { headers }, { timeoutMs: 15_000, maxBytes: MAX_R2_MEDIA_BYTES });
       console.log(`[R2 Trace] Fetch status: ${response.status} ${response.statusText}`);
 
       // Fallback for Xiaohongshu 403: Retry without Referer
@@ -102,7 +113,7 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
         console.log(`[R2 Trace] 403 Forbidden for XHS. Retrying without Referer...`);
         const fallbackHeaders = { ...headers };
         delete fallbackHeaders['Referer'];
-        response = await fetch(url, { headers: fallbackHeaders });
+        response = await fetchValidatedUrl(url, { headers: fallbackHeaders }, { timeoutMs: 15_000, maxBytes: MAX_R2_MEDIA_BYTES });
         console.log(`[R2 Trace] Fallback fetch status: ${response.status} ${response.statusText}`);
       }
 
@@ -111,6 +122,10 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
       }
 
       const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength > MAX_R2_MEDIA_BYTES) {
+        throw new Error("Remote media is too large");
+      }
+
       buffer = Buffer.from(arrayBuffer);
       contentType = response.headers.get("content-type") || "application/octet-stream";
       
@@ -147,10 +162,8 @@ export async function uploadMediaToR2(url: string, postId: string, referer?: str
     return finalUrl;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[R2 Upload Error] URL: ${url.startsWith('data:') ? 'base64 image' : url}`);
+    console.error(`[R2 Upload Error] URL: ${url.startsWith('data:') ? 'base64 image' : redactUrlForLog(url)}`);
     console.error(`  Error: ${errorMessage}`);
     return null;
   }
 }
-
-

@@ -1,4 +1,5 @@
 import { type BarkConfigItem, getEnabledBarkConfigs } from "@/lib/bark-config";
+import { fetchValidatedUrl, validateUrl } from "@/lib/utils/url";
 
 export interface BarkNotificationOptions {
   title: string;
@@ -39,10 +40,10 @@ const formatBarkErrorResponse = (status: number, responseText: string) => {
   return responseText.slice(0, 500);
 };
 
-const createBarkGetUrl = (baseUrl: string, payload: BarkPayload): string => {
+const createBarkGetUrl = (baseUrl: string, payload: BarkPayload, redactSensitive = false): string => {
   const baseWithSlash = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const url = new URL(
-    `${encodeURIComponent(payload.title)}/${encodeURIComponent(payload.body)}`,
+    `${encodeURIComponent(payload.title)}/${encodeURIComponent(redactSensitive ? "Open Cleon for details." : payload.body)}`,
     baseWithSlash,
   );
 
@@ -51,11 +52,11 @@ const createBarkGetUrl = (baseUrl: string, payload: BarkPayload): string => {
     group: payload.group,
     category: payload.category,
     icon: payload.icon,
-    url: payload.url,
+    url: redactSensitive ? undefined : payload.url,
     level: payload.level,
     badge: payload.badge?.toString(),
-    copy: payload.copy,
-    autoCopy: payload.autoCopy,
+    copy: redactSensitive ? undefined : payload.copy,
+    autoCopy: redactSensitive ? undefined : payload.autoCopy,
     isArchive: payload.isArchive,
   };
 
@@ -74,6 +75,11 @@ class BarkNotification {
     options: BarkNotificationOptions,
   ): Promise<boolean> {
     try {
+      if (!validateUrl(config.url)) {
+        console.error(`Invalid or unsafe Bark endpoint for ${config.name}`);
+        return false;
+      }
+
       const payload = {
         title: options.title,
         body: options.body,
@@ -89,11 +95,11 @@ class BarkNotification {
         ...(options.isArchive && { isArchive: options.isArchive }),
       };
 
-      const response = await fetch(config.url, {
+      const response = await fetchValidatedUrl(config.url, {
         method: "POST",
         headers: BARK_REQUEST_HEADERS,
         body: JSON.stringify(payload),
-      });
+      }, { timeoutMs: 8_000, maxBytes: 1_000_000 });
 
       if (!response.ok) {
         const responseText = await response.text().catch(() => "");
@@ -103,12 +109,13 @@ class BarkNotification {
         );
 
         if (isCloudflareChallenge(response.status, responseText)) {
-          const fallbackResponse = await fetch(
-            createBarkGetUrl(config.url, payload),
+          const fallbackResponse = await fetchValidatedUrl(
+            createBarkGetUrl(config.url, payload, true),
             {
               method: "GET",
               headers: BARK_REQUEST_HEADERS,
             },
+            { timeoutMs: 8_000, maxBytes: 1_000_000 },
           );
 
           if (!fallbackResponse.ok) {

@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl, validateUrl } from '@/lib/utils/url';
 
 type JsonLdPerson = {
   name?: string;
@@ -25,17 +26,22 @@ const readUrlLike = (value: string | { url?: string } | undefined) =>
 
 export class WebParser implements ContentParser {
   match(url: string): boolean {
-    return url.startsWith('http://') || url.startsWith('https://');
+    try {
+      const protocol = new URL(url).protocol;
+      return protocol === 'http:' || protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
-    const res = await fetch(url, {
+    const res = await fetchValidatedUrl(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
-    });
+    }, { timeoutMs: 12_000, maxBytes: 4_000_000 });
 
     if (!res.ok) {
       throw new Error(`Failed to fetch web page: ${res.statusText}`);
@@ -168,7 +174,7 @@ export class WebParser implements ContentParser {
         }
       }
       return u;
-    }).filter(u => !!u);
+    }).filter((u) => !!u && validateUrl(u));
 
     return {
       platform: 'WEB',

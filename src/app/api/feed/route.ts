@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
-import { extractUrl, validateUrl } from '@/lib/utils/url';
+import { extractUrl, isSafeDataImageUrl, isSafeRemoteUrl, redactUrlForLog, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 import { isEmbedUrl } from '@/lib/utils';
 import { uploadMediaToR2 } from '@/lib/r2';
@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { notifyNewPostCreated } from '@/lib/notification';
 import { getFeedSummary } from '@/lib/feed-summary';
 import { requireOwnerRequest } from '@/lib/auth/session';
+import { getPublicSiteOrigin, serializePostWithShareUrl } from '@/lib/post-share';
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unknown error';
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
   if (unauthorized) return unauthorized;
 
   let url = 'unknown';
+  const siteOrigin = getPublicSiteOrigin(req);
   try {
     const body = await req.json();
     const rawUrl = body.url;
@@ -53,12 +55,19 @@ export async function POST(req: Request) {
             continue;
         }
 
+        if (mediaUrl.startsWith('data:') && !isSafeDataImageUrl(mediaUrl)) {
+            console.warn('Skipping unsafe data media URL for feed capture');
+            continue;
+        }
+
         const r2Url = await uploadMediaToR2(mediaUrl, postId, url);
         if (r2Url) {
             mediaUrls.push(r2Url);
-        } else {
-            // Fallback to original URL if upload fails
+        } else if (!mediaUrl.startsWith('data:') && await isSafeRemoteUrl(mediaUrl)) {
+            // Fallback to original URL only after the same SSRF checks used by server fetches.
             mediaUrls.push(mediaUrl);
+        } else {
+            console.warn('Skipping unsafe media URL after R2 upload failure:', redactUrlForLog(mediaUrl));
         }
     }
 
@@ -81,12 +90,11 @@ export async function POST(req: Request) {
     });
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
       await notifyNewPostCreated(
         post.platform,
         post.title,
         'WEB',
-        `${siteUrl}/#${post.id}`,
+        serializePostWithShareUrl(post, siteOrigin).shareUrl,
       );
     } catch (notificationError) {
       console.error('Failed to send new post Bark notification:', notificationError);
@@ -94,7 +102,11 @@ export async function POST(req: Request) {
 
     const summary = await getFeedSummary();
 
-    return NextResponse.json({ success: true, data: post, summary }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      data: serializePostWithShareUrl(post, siteOrigin),
+      summary,
+    }, { status: 201 });
     } catch (error: unknown) {
     console.error('------- [API CRASH] Error parsing feed URL -------');
     console.error(error);
@@ -122,6 +134,7 @@ export async function GET(req: Request) {
     if (unauthorized) return unauthorized;
 
     try {
+        const siteOrigin = getPublicSiteOrigin(req);
         const { searchParams } = new URL(req.url);
         const cursor = searchParams.get('cursor');
         const since = searchParams.get('since');
@@ -148,7 +161,11 @@ export async function GET(req: Request) {
                 },
                 orderBy: { createdAt: 'desc' }
             });
-            return NextResponse.json({ success: true, data: newPosts, hasMore: false });
+            return NextResponse.json({
+              success: true,
+              data: newPosts.map((post) => serializePostWithShareUrl(post, siteOrigin)),
+              hasMore: false,
+            });
         }
 
         // Standard Pagination: Fetch posts with cursor
@@ -168,7 +185,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json({ 
             success: true, 
-            data, 
+            data: data.map((post) => serializePostWithShareUrl(post, siteOrigin)),
             nextCursor,
             hasMore,
             ...(summary ? { summary } : {}),

@@ -10,8 +10,33 @@ export function isVideoUrl(url: string) {
 }
 
 export function isEmbedUrl(url: string) {
-  const lowerUrl = url.toLowerCase();
-  return lowerUrl.includes('player.bilibili.com') || 
-         lowerUrl.includes('youtube.com/embed/') || 
-         lowerUrl.includes('player.vimeo.com');
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname.replace(/\.+$/, '').toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+
+    if (hostname === 'player.bilibili.com') {
+      return pathname === '/player.html';
+    }
+
+    if (
+      hostname === 'www.youtube.com' ||
+      hostname === 'youtube.com' ||
+      hostname === 'www.youtube-nocookie.com'
+    ) {
+      return pathname.startsWith('/embed/');
+    }
+
+    if (hostname === 'player.vimeo.com') {
+      return pathname.startsWith('/video/');
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }
