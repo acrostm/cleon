@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireOwnerRequest } from "@/lib/auth/session";
+
 type SpotifyPreview = {
   title: string;
   artist: string;
@@ -22,6 +24,16 @@ function normalizeSpotifyUrl(url: string): string {
   return url.replace(/\/intl-[a-z]{2}\//, "/");
 }
 
+function isSpotifyUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:")
+      && (url.hostname === "open.spotify.com" || url.hostname.endsWith(".spotify.com"));
+  } catch {
+    return false;
+  }
+}
+
 async function getSpotifyPreview(url: string): Promise<SpotifyPreview> {
   const spotifyModule = await import("spotify-url-info") as unknown as {
     default?: SpotifyUrlInfoFactory;
@@ -31,10 +43,17 @@ async function getSpotifyPreview(url: string): Promise<SpotifyPreview> {
 }
 
 export async function GET(request: NextRequest) {
+  const unauthorized = requireOwnerRequest(request);
+  if (unauthorized) return unauthorized;
+
   const url = request.nextUrl.searchParams.get("url");
 
   if (!url) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
+  }
+
+  if (!isSpotifyUrl(url)) {
+    return NextResponse.json({ error: "Only Spotify URLs are supported" }, { status: 400 });
   }
 
   try {

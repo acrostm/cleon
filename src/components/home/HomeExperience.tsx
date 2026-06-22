@@ -11,6 +11,7 @@ import {
   Filter,
   Inbox,
   Link2,
+  LogOut,
   Plus,
   Radar,
   RefreshCw,
@@ -245,6 +246,26 @@ export function HomeExperience() {
       console.error("[Delete Error]:", err);
       toast.error("Failed to delete post");
       return false;
+    }
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null) as { error?: string } | null;
+        console.error("[Owner Logout Error]:", data?.error || res.statusText);
+        toast.error(data?.error || "Failed to lock Cleon");
+        return;
+      }
+
+      window.location.assign("/");
+    } catch (err) {
+      console.error("[Owner Logout Network Error]:", err);
+      toast.error("Failed to lock Cleon");
     }
   }, []);
 
@@ -485,6 +506,10 @@ export function HomeExperience() {
           setIsCommandOpen(false);
           void fetchInitialPosts();
         }}
+        onLogout={() => {
+          setIsCommandOpen(false);
+          void handleLogout();
+        }}
       />
 
       <PostDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} onDelete={handleDelete} />
@@ -545,11 +570,13 @@ function CommandPalette({
   onOpenChange,
   onCapture,
   onRefresh,
+  onLogout,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCapture: () => void;
   onRefresh: () => void;
+  onLogout: () => void;
 }) {
   const scope = useRef<HTMLDivElement>(null);
 
@@ -581,6 +608,7 @@ function CommandPalette({
             <CommandItem icon={RefreshCw} label="Refresh timeline" detail="Reload latest feed window" onClick={onRefresh} />
             <CommandHref icon={ClipboardCheck} label="Device Relay" detail="Open cross-platform clipboard" href="/clipboard" />
             <CommandHref icon={Bell} label="Bark Console" detail="Manage notification endpoints" href="/admin/bark" />
+            <CommandItem icon={LogOut} label="Lock Cleon" detail="Clear this device session" onClick={onLogout} />
             <CommandItem icon={Inbox} label="Close palette" detail="Return to the feed" onClick={() => onOpenChange(false)} />
           </div>
         </div>

@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { deleteMediaFromR2 } from '@/lib/r2';
 import { getFeedSummary } from '@/lib/feed-summary';
+import { requireOwnerRequest } from '@/lib/auth/session';
 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const { id } = await params;
 
@@ -53,4 +57,3 @@ export async function DELETE(
     }, { status: 500 });
   }
 }
-

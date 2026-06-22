@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+import { requireOwnerRequest } from '@/lib/auth/session';
+import { validateUrl } from '@/lib/utils/url';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
+    const unauthorized = requireOwnerRequest(req);
+    if (unauthorized) return unauthorized;
+
     const { searchParams } = new URL(req.url);
     const url = searchParams.get('url');
     const refererParam = searchParams.get('referer');
@@ -12,7 +18,11 @@ export async function GET(req: Request) {
     }
 
     try {
-        const decodedUrl = decodeURIComponent(url);
+        const decodedUrl = url;
+        if (!validateUrl(decodedUrl)) {
+            return new NextResponse('Invalid or unsafe url parameter', { status: 400 });
+        }
+
         const lowerUrl = decodedUrl.toLowerCase();
         const isXhs = lowerUrl.includes('xiaohongshu.com') || lowerUrl.includes('xhslink.com') || lowerUrl.includes('sns-webpic');
         const isTwitter = lowerUrl.includes('twimg.com') || lowerUrl.includes('twitter.com');
@@ -24,8 +34,8 @@ export async function GET(req: Request) {
         };
         
         // Use provided referer if available, otherwise use defaults
-        if (refererParam) {
-            headers['Referer'] = decodeURIComponent(refererParam);
+        if (refererParam && validateUrl(refererParam)) {
+            headers['Referer'] = refererParam;
         } else if (isXhs) {
             headers['Referer'] = 'https://www.xiaohongshu.com/';
         } else if (isTwitter) {
