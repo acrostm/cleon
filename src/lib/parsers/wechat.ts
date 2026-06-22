@@ -1,18 +1,23 @@
 import * as cheerio from 'cheerio';
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl } from '@/lib/utils/url';
 
 export class WechatParser implements ContentParser {
   match(url: string): boolean {
-    return /mp\.weixin\.qq\.com/.test(url);
+    try {
+      return new URL(url).hostname.toLowerCase() === 'mp.weixin.qq.com';
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
     try {
-      const res = await fetch(url, {
+      const res = await fetchValidatedUrl(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
         }
-      });
+      }, { timeoutMs: 12_000, maxBytes: 4_000_000 });
 
       if (!res.ok) {
         throw new Error(`Failed to fetch WeChat article: ${res.statusText}`);

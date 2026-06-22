@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 
 import { requireOwnerRequest } from '@/lib/auth/session';
-import { validateUrl } from '@/lib/utils/url';
+import { fetchValidatedUrl, redactUrlForLog, validateUrl } from '@/lib/utils/url';
 
 export const runtime = 'nodejs';
+const MAX_PROXY_MEDIA_BYTES = 50 * 1024 * 1024;
 
 export async function GET(req: Request) {
     const unauthorized = requireOwnerRequest(req);
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
             }
         }
 
-        const response = await fetch(decodedUrl, { headers });
+        const response = await fetchValidatedUrl(decodedUrl, { headers }, { timeoutMs: 15_000, maxBytes: MAX_PROXY_MEDIA_BYTES });
 
         if (!response.ok) {
              return new NextResponse(`Failed to fetch media: ${response.status}`, { status: response.status });
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
 
         return new NextResponse(response.body, { headers: resHeaders });
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to proxy media';
-        return new NextResponse(message, { status: 500 });
+        console.error('Failed to proxy media:', redactUrlForLog(url), error);
+        return new NextResponse('Failed to proxy media', { status: 500 });
     }
 }

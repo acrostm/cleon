@@ -1,6 +1,15 @@
 export function getClientIp(req: Request) {
-  const forwardedFor = req.headers.get('x-forwarded-for');
-  return forwardedFor?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'local';
+  const normalizeIp = (value: string | null | undefined) => {
+    const normalized = value?.split(',').map((part) => part.trim()).filter(Boolean).pop();
+    return normalized || null;
+  };
+
+  return (
+    normalizeIp(req.headers.get('x-real-ip')) ||
+    normalizeIp(req.headers.get('x-vercel-forwarded-for')) ||
+    normalizeIp(req.headers.get('x-forwarded-for')) ||
+    'local'
+  );
 }
 
 export function getCoarseIp(ipAddress: string) {

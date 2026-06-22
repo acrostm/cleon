@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -36,10 +38,87 @@ function formatBarkErrorResponse(status, responseText) {
   return responseText.slice(0, 500);
 }
 
-function createBarkGetUrl(baseUrl, payload) {
+function normalizeHostname(hostname) {
+  return hostname.replace(/\.+$/, "").replace(/^\[|\]$/g, "").toLowerCase();
+}
+
+function isUnsafeIpv4(hostname) {
+  const candidate = normalizeHostname(hostname);
+  if (isIP(candidate) !== 4) return false;
+
+  const octets = candidate.split(".").map((part) => Number.parseInt(part, 10));
+  const [first, second] = octets;
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    first >= 224 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && (second === 0 || second === 168)) ||
+    (first === 198 && (second === 18 || second === 19))
+  );
+}
+
+function isUnsafeHostname(hostname) {
+  const normalizedHostname = normalizeHostname(hostname);
+  return (
+    normalizedHostname === "localhost" ||
+    normalizedHostname === "metadata" ||
+    normalizedHostname === "metadata.google.internal" ||
+    normalizedHostname.endsWith(".localhost") ||
+    normalizedHostname.endsWith(".local") ||
+    normalizedHostname.endsWith(".internal") ||
+    (!normalizedHostname.includes(".") && isIP(normalizedHostname) === 0) ||
+    isUnsafeIpv4(normalizedHostname) ||
+    normalizedHostname === "::1" ||
+    normalizedHostname.startsWith("fe80:") ||
+    normalizedHostname.startsWith("fc") ||
+    normalizedHostname.startsWith("fd")
+  );
+}
+
+function validateUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      urlString.length <= 2048 &&
+      !isUnsafeHostname(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function assertUrlResolvesPublic(urlString) {
+  if (!validateUrl(urlString)) {
+    throw new Error("Invalid or unsafe Bark URL");
+  }
+
+  const hostname = normalizeHostname(new URL(urlString).hostname);
+  if (isIP(hostname) !== 0) return;
+
+  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  if (addresses.some(({ address }) => isUnsafeHostname(address))) {
+    throw new Error("Bark URL resolves to a private or reserved address");
+  }
+}
+
+async function fetchValidatedUrl(urlString, init) {
+  await assertUrlResolvesPublic(urlString);
+  return fetch(urlString, {
+    ...init,
+    redirect: "manual",
+    signal: AbortSignal.timeout(8000),
+  });
+}
+
+function createBarkGetUrl(baseUrl, payload, redactSensitive = false) {
   const baseWithSlash = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const url = new URL(
-    `${encodeURIComponent(payload.title)}/${encodeURIComponent(payload.body)}`,
+    `${encodeURIComponent(payload.title)}/${encodeURIComponent(redactSensitive ? "Open Cleon for details." : payload.body)}`,
     baseWithSlash,
   );
 
@@ -48,11 +127,11 @@ function createBarkGetUrl(baseUrl, payload) {
     group: payload.group,
     category: payload.category,
     icon: payload.icon,
-    url: payload.url,
+    url: redactSensitive ? undefined : payload.url,
     level: payload.level,
     badge: payload.badge?.toString(),
-    copy: payload.copy,
-    autoCopy: payload.autoCopy,
+    copy: redactSensitive ? undefined : payload.copy,
+    autoCopy: redactSensitive ? undefined : payload.autoCopy,
     isArchive: payload.isArchive,
   };
 
@@ -101,7 +180,12 @@ async function readBarkConfig() {
 
 async function sendBarkNotification(config, payload) {
   try {
-    const response = await fetch(config.url, {
+    if (!validateUrl(config.url)) {
+      console.error(`✗ Invalid or unsafe Bark endpoint for ${config.name}`);
+      return false;
+    }
+
+    const response = await fetchValidatedUrl(config.url, {
       method: "POST",
       headers: BARK_REQUEST_HEADERS,
       body: JSON.stringify(payload),
@@ -119,7 +203,7 @@ async function sendBarkNotification(config, payload) {
     );
 
     if (isCloudflareChallenge(response.status, responseText)) {
-      const fallbackResponse = await fetch(createBarkGetUrl(config.url, payload), {
+      const fallbackResponse = await fetchValidatedUrl(createBarkGetUrl(config.url, payload, true), {
         method: "GET",
         headers: BARK_REQUEST_HEADERS,
       });

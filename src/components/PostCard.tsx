@@ -32,8 +32,13 @@ export const PostCard = memo(function PostCard({ post, onClick }: { post: Post; 
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/#${post.id}`;
-    navigator.clipboard.writeText(url).then(() => {
+    if (!post.shareUrl) {
+      console.error('[Share URL Error]: Missing signed share URL for post', post.id);
+      toast.error('Share link unavailable');
+      return;
+    }
+
+    navigator.clipboard.writeText(post.shareUrl).then(() => {
       toast.success('Link copied to clipboard');
     }).catch((error) => {
       console.error('[Share Clipboard Error]:', error);

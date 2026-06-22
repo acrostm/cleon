@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { getParserForUrl } from '@/lib/parsers';
-import { extractUrl, validateUrl, normalizeUrl } from '@/lib/utils/url';
+import { extractUrl, isSafeDataImageUrl, isSafeRemoteUrl, normalizeUrl, redactUrlForLog, validateUrl } from '@/lib/utils/url';
 import prisma from '@/lib/prisma';
 import jsQR from 'jsqr';
 import { Jimp } from 'jimp';
@@ -8,10 +8,29 @@ import { uploadMediaToR2 } from '@/lib/r2';
 import { isEmbedUrl } from '@/lib/utils';
 import crypto from 'crypto';
 import { notifyNewPostCreated } from '@/lib/notification';
+import { createPostShareUrl, getPublicSiteOrigin } from '@/lib/post-share';
 
 // In-memory cache to quickly discard duplicate events (e.g. from Feishu webhook retries)
 // This works per-instance; combined with 'after()', it virtually eliminates duplicate processing.
 const processedMessageIds = new Set<string>();
+const MAX_FEISHU_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_QR_SCAN_PIXELS = 16_000_000;
+
+function verifyFeishuToken(value: unknown) {
+  const expectedToken = process.env.FEISHU_VERIFICATION_TOKEN;
+  if (!expectedToken) {
+    console.error('Missing FEISHU_VERIFICATION_TOKEN');
+    return false;
+  }
+
+  if (typeof value !== 'string') return false;
+
+  const actualBuffer = Buffer.from(value);
+  const expectedBuffer = Buffer.from(expectedToken);
+  if (actualBuffer.length !== expectedBuffer.length) return false;
+
+  return crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
 
 // Helper to fetch Feishu tenant access token
 async function getTenantAccessToken() {
@@ -66,14 +85,35 @@ async function extractUrlFromImage(messageId: string, imageKey: string): Promise
     }
 
     const contentType = res.headers.get('content-type') || 'image/jpeg';
+    const imageContentType = contentType.split(';')[0].trim().toLowerCase();
+    if (!imageContentType.startsWith('image/')) {
+      console.error('Feishu resource is not an image:', contentType);
+      return { url: null, base64Image: null };
+    }
+
+    const contentLength = Number.parseInt(res.headers.get('content-length') || '', 10);
+    if (Number.isFinite(contentLength) && contentLength > MAX_FEISHU_IMAGE_BYTES) {
+      console.error('Feishu image is too large for QR scanning:', contentLength);
+      return { url: null, base64Image: null };
+    }
+
     const arrayBuffer = await res.arrayBuffer();
+    if (arrayBuffer.byteLength > MAX_FEISHU_IMAGE_BYTES) {
+      console.error('Feishu image exceeded QR scanning size limit:', arrayBuffer.byteLength);
+      return { url: null, base64Image: null };
+    }
+
     const buffer = Buffer.from(arrayBuffer);
     
-    const base64Image = `data:${contentType};base64,${buffer.toString('base64')}`;
+    const base64Image = `data:${imageContentType};base64,${buffer.toString('base64')}`;
 
     // Read image using Jimp
     const image = await Jimp.read(buffer);
     const { data, width, height } = image.bitmap;
+    if (width * height > MAX_QR_SCAN_PIXELS) {
+      console.error('Feishu image exceeded QR scanning pixel limit:', { width, height });
+      return { url: null, base64Image: null };
+    }
     
     // Scan for QR code
     const code = jsQR(new Uint8ClampedArray(data), width, height);
@@ -113,15 +153,13 @@ async function replyToMessage(messageId: string, text: string) {
 
 export async function POST(req: Request) {
   try {
-    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    const protocol = req.headers.get('x-forwarded-proto') || 'https';
-    const baseUrl = `${protocol}://${host}`;
+    const baseUrl = getPublicSiteOrigin(req);
 
     const body = await req.json();
 
     // 1. URL Verification Challenge
     if (body.type === 'url_verification') {
-      if (body.token !== process.env.FEISHU_VERIFICATION_TOKEN) {
+      if (!verifyFeishuToken(body.token)) {
         return NextResponse.json({ error: 'Invalid token' }, { status: 403 });
       }
       return NextResponse.json({ challenge: body.challenge });
@@ -129,7 +167,7 @@ export async function POST(req: Request) {
 
     // 2. Event Payload Handling
     if (body.header?.event_type === 'im.message.receive_v1') {
-      if (body.header.token !== process.env.FEISHU_VERIFICATION_TOKEN) {
+      if (!verifyFeishuToken(body.header.token)) {
         return NextResponse.json({ error: 'Invalid token' }, { status: 403 });
       }
 
@@ -185,7 +223,7 @@ export async function POST(req: Request) {
             await prisma.urlSubmission.create({
               data: { url: rawUrl, source: 'FEISHU', status: 'REJECTED', errorMessage: 'Invalid or unsafe URL' }
             });
-            await replyToMessage(message.message_id, `⚠️ 拒绝：提取到的 URL 无效或不安全。\nURL: ${rawUrl}`);
+            await replyToMessage(message.message_id, '⚠️ 拒绝：提取到的 URL 无效或不安全。');
             return;
           }
 
@@ -204,8 +242,13 @@ export async function POST(req: Request) {
             await prisma.urlSubmission.create({
               data: { url: rawUrl, source: 'FEISHU', status: 'DUPLICATE', postId: recentDuplicate.id }
             });
-            const shareUrl = `${baseUrl}/#${recentDuplicate.id}`;
-            await replyToMessage(message.message_id, `✨ 已存在：${shareUrl}\n原文: ${rawUrl}`);
+            const shareUrl = createPostShareUrl(recentDuplicate, baseUrl);
+            if (!shareUrl) {
+              console.error('Missing share signing secret for duplicate Feishu post reply:', recentDuplicate.id);
+              await replyToMessage(message.message_id, `❌ 分享链接生成失败，请检查签名密钥。\n解析地址：${redactUrlForLog(rawUrl)}`);
+              return;
+            }
+            await replyToMessage(message.message_id, `✨ 已存在：${shareUrl}\n解析地址：${redactUrlForLog(rawUrl)}`);
             return;
           }
 
@@ -230,13 +273,20 @@ export async function POST(req: Request) {
                   continue;
               }
 
+              if (mediaUrl.startsWith('data:') && !isSafeDataImageUrl(mediaUrl)) {
+                  console.warn('Skipping unsafe data media URL for Feishu capture');
+                  continue;
+              }
+
               // uploadMediaToR2 now handles base64 data URLs
               const r2Url = await uploadMediaToR2(mediaUrl, postId, rawUrl);
               if (r2Url) {
                   mediaUrls.push(r2Url);
-              } else if (!mediaUrl.startsWith('data:')) {
-                  // Fallback for non-base64 URLs if upload fails
+              } else if (!mediaUrl.startsWith('data:') && await isSafeRemoteUrl(mediaUrl)) {
+                  // Fallback for non-base64 URLs only after the same SSRF checks used by server fetches.
                   mediaUrls.push(mediaUrl);
+              } else {
+                  console.warn('Skipping unsafe media URL after Feishu R2 upload failure:', redactUrlForLog(mediaUrl));
               }
           }
 
@@ -259,14 +309,19 @@ export async function POST(req: Request) {
             data: { url: rawUrl, source: 'FEISHU', status: 'SUCCESS', postId: post.id }
           });
 
-          const shareUrl = `${baseUrl}/#${post.id}`;
+          const shareUrl = createPostShareUrl(post, baseUrl);
+          if (!shareUrl) {
+            console.error('Missing share signing secret for Feishu post reply:', post.id);
+            await replyToMessage(message.message_id, `❌ 分享链接生成失败，请检查签名密钥。\n解析地址：${redactUrlForLog(rawUrl)}`);
+            return;
+          }
           try {
             await notifyNewPostCreated(post.platform, post.title, 'FEISHU', shareUrl);
           } catch (notificationError) {
             console.error('Failed to send new post Bark notification:', notificationError);
           }
 
-          await replyToMessage(message.message_id, `✅ 已成功采集！\n预览：${shareUrl}\n解析地址：${rawUrl}`);
+          await replyToMessage(message.message_id, `✅ 已成功采集！\n预览：${shareUrl}\n解析地址：${redactUrlForLog(rawUrl)}`);
 
         } catch (error: unknown) {
           console.error('Background processing error:', error);
@@ -274,7 +329,7 @@ export async function POST(req: Request) {
           await prisma.urlSubmission.create({
             data: { url: rawUrl || 'unknown', source: 'FEISHU', status: 'FAILED', errorMessage }
           });
-          await replyToMessage(message.message_id, `❌ 处理失败：${errorMessage}${rawUrl ? `\n地址: ${rawUrl}` : ''}`);
+          await replyToMessage(message.message_id, `❌ 处理失败：${errorMessage}${rawUrl ? `\n地址: ${redactUrlForLog(rawUrl)}` : ''}`);
         }
       });
 

@@ -1,4 +1,5 @@
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl } from '@/lib/utils/url';
 
 type TwitterMedia = {
   url?: string;
@@ -20,8 +21,12 @@ type TwitterPayload = {
 
 export class TwitterParser implements ContentParser {
   match(url: string): boolean {
-    const parsed = new URL(url);
-    return parsed.hostname === 'twitter.com' || parsed.hostname === 'x.com' || parsed.hostname === 'www.twitter.com' || parsed.hostname === 'www.x.com';
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return hostname === 'twitter.com' || hostname === 'x.com' || hostname === 'www.twitter.com' || hostname === 'www.x.com' || hostname === 'mobile.twitter.com' || hostname === 'mobile.x.com';
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
@@ -29,7 +34,7 @@ export class TwitterParser implements ContentParser {
     const path = urlObj.pathname;
     const apiUrl = `https://api.vxtwitter.com${path}`;
 
-    const res = await fetch(apiUrl);
+    const res = await fetchValidatedUrl(apiUrl, {}, { timeoutMs: 10_000, maxBytes: 1_000_000 });
     if (!res.ok) {
       throw new Error(`Failed to fetch X/Twitter data: ${res.statusText}`);
     }

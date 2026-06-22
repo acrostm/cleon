@@ -1,4 +1,5 @@
 import { ContentParser, ParsedData } from './index';
+import { fetchValidatedUrl } from '@/lib/utils/url';
 
 type DouyinImage = {
   urlDefault?: string;
@@ -31,7 +32,12 @@ type DouyinRouterData = {
 
 export class DouyinParser implements ContentParser {
   match(url: string): boolean {
-    return /douyin\.com/.test(url);
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return hostname === 'douyin.com' || hostname.endsWith('.douyin.com') || hostname === 'iesdouyin.com' || hostname.endsWith('.iesdouyin.com');
+    } catch {
+      return false;
+    }
   }
 
   async parse(url: string): Promise<ParsedData> {
@@ -42,12 +48,12 @@ export class DouyinParser implements ContentParser {
       
       const mobileUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
 
-      if (url.includes('v.douyin.com')) {
-        const res = await fetch(url, {
+      if (new URL(url).hostname.toLowerCase() === 'v.douyin.com') {
+        const res = await fetchValidatedUrl(url, {
           method: 'GET',
           redirect: 'follow',
           headers: { 'User-Agent': mobileUA }
-        });
+        }, { timeoutMs: 10_000, maxBytes: 500_000 });
         finalUrl = res.url;
       }
       
@@ -73,13 +79,13 @@ export class DouyinParser implements ContentParser {
       
       // 3. Fetch the mobile share page containing _ROUTER_DATA
       const shareUrl = `https://www.iesdouyin.com/share/video/${videoId}/`;
-      const shareRes = await fetch(shareUrl, {
+      const shareRes = await fetchValidatedUrl(shareUrl, {
           headers: {
               'User-Agent': mobileUA,
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
               'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
           }
-      });
+      }, { timeoutMs: 12_000, maxBytes: 4_000_000 });
       const html = await shareRes.text();
       
       // 4. Extract JSON from _ROUTER_DATA

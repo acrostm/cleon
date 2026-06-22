@@ -22,6 +22,7 @@ export type Post = {
   contentText: string;
   mediaUrls: string[];
   createdAt: string;
+  shareUrl: string;
 };
 
 export const platformMeta: Record<Platform, { label: string; tone: string }> = {
