@@ -1,9 +1,20 @@
+import { cookies } from "next/headers";
+
+import { AccessGate } from "@/components/auth/AccessGate";
 import { CrossPlatformClipboard } from "@/components/CrossPlatformClipboard";
 import { CommandCenterBackground } from "@/components/command-center/CommandCenterBackground";
 import { HomeReturnButton } from "@/components/HomeReturnButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { isOwnerSessionValue, OWNER_SESSION_COOKIE } from "@/lib/auth/session";
 
-export default function ClipboardPage() {
+export default async function ClipboardPage() {
+  const cookieStore = await cookies();
+  const isOwner = isOwnerSessionValue(cookieStore.get(OWNER_SESSION_COOKIE)?.value);
+
+  if (!isOwner) {
+    return <AccessGate redirectPath="/clipboard" />;
+  }
+
   return (
     <main className="min-h-screen overflow-x-hidden text-slate-100 selection:bg-cyan-300/20">
       <CommandCenterBackground />

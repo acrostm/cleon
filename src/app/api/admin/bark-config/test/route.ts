@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { barkNotification } from "@/lib/notification";
+import { requireOwnerRequest } from "@/lib/auth/session";
 
-export async function POST() {
+export async function POST(req: Request) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const testMessage = `这是一条 Cleon 测试通知\n\n测试时间: ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}\n\n如果你收到这条通知，说明 Bark 配置正常工作。`;
 

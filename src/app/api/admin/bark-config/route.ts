@@ -6,8 +6,12 @@ import {
   readBarkConfig,
   updateBarkConfig,
 } from "@/lib/bark-config";
+import { requireOwnerRequest } from "@/lib/auth/session";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const config = await readBarkConfig();
     return NextResponse.json(config);
@@ -21,6 +25,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
 
@@ -53,6 +60,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
 
@@ -92,6 +102,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

@@ -9,13 +9,10 @@ import {
   getRecentPastes,
   savePaste,
 } from '@/lib/paste-bin';
+import { requireOwnerRequest } from '@/lib/auth/session';
+import { getClientIp } from '@/lib/request';
 
 export const runtime = 'nodejs';
-
-function getClientIp(req: Request) {
-  const forwardedFor = req.headers.get('x-forwarded-for');
-  return forwardedFor?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'local';
-}
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -33,7 +30,10 @@ function getErrorStack(error: unknown) {
   return error instanceof Error ? error.stack : undefined;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const data = await getRecentPastes();
 
@@ -54,6 +54,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
     const content = typeof body.content === 'string' ? body.content.trim() : '';
@@ -95,7 +98,10 @@ export async function POST(req: Request) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   try {
     await clearPastes();
 

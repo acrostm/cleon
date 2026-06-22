@@ -7,6 +7,7 @@ import { uploadMediaToR2 } from '@/lib/r2';
 import crypto from 'crypto';
 import { notifyNewPostCreated } from '@/lib/notification';
 import { getFeedSummary } from '@/lib/feed-summary';
+import { requireOwnerRequest } from '@/lib/auth/session';
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unknown error';
@@ -15,6 +16,9 @@ const getErrorStack = (error: unknown) =>
   error instanceof Error ? error.stack : undefined;
 
 export async function POST(req: Request) {
+  const unauthorized = requireOwnerRequest(req);
+  if (unauthorized) return unauthorized;
+
   let url = 'unknown';
   try {
     const body = await req.json();
@@ -114,6 +118,9 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+    const unauthorized = requireOwnerRequest(req);
+    if (unauthorized) return unauthorized;
+
     try {
         const { searchParams } = new URL(req.url);
         const cursor = searchParams.get('cursor');
