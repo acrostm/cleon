@@ -5,10 +5,10 @@ const baseUrl = (
   "http://localhost:3000"
 ).replace(/\/$/, "");
 
-const secret = process.env.ARCHIVE_CRON_SECRET;
+const secret = process.env.ARCHIVE_CRON_SECRET || process.env.CRON_SECRET;
 
 if (!secret) {
-  console.error("ARCHIVE_CRON_SECRET is required to run the archive worker.");
+  console.error("ARCHIVE_CRON_SECRET or CRON_SECRET is required to run the archive worker.");
   process.exit(1);
 }
 

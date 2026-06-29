@@ -9,7 +9,7 @@ function constantTimeEqual(left: string, right: string) {
 }
 
 export function isArchiveCronRequest(req: Request) {
-  const secret = process.env.ARCHIVE_CRON_SECRET || "";
+  const secret = process.env.ARCHIVE_CRON_SECRET || process.env.CRON_SECRET || "";
   if (!secret) return false;
 
   const authorization = req.headers.get("authorization") || "";

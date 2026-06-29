@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/archive/worker/run?limit=3",
+      "schedule": "0 23 * * *"
+    }
+  ]
+}

@@ -46,6 +46,28 @@ function calculateNextScanAt(intervalSeconds: number, consecutiveFailures: numbe
   return addSeconds(new Date(), intervalSeconds * multiplier);
 }
 
+function classifyScanFailure(message: string, consecutiveFailures: number) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("login_required")) {
+    return { errorCode: "LOGIN_REQUIRED", accountStatus: "login_required", shouldPause: true };
+  }
+
+  if (normalized.includes("captcha_required") || normalized.includes("captcha")) {
+    return { errorCode: "CAPTCHA_REQUIRED", accountStatus: "captcha_required", shouldPause: true };
+  }
+
+  if (normalized.includes("restricted") || normalized.includes("access_denied")) {
+    return { errorCode: "ACCESS_DENIED", accountStatus: "restricted", shouldPause: consecutiveFailures >= 3 };
+  }
+
+  if (normalized.includes("timeout")) {
+    return { errorCode: "PAGE_TIMEOUT", accountStatus: consecutiveFailures >= 5 ? "paused" : "unstable", shouldPause: consecutiveFailures >= 5 };
+  }
+
+  return { errorCode: "PARSE_ERROR", accountStatus: consecutiveFailures >= 5 ? "paused" : "unstable", shouldPause: consecutiveFailures >= 5 };
+}
+
 function archiveStatusFromAccessState(accessState: ArchiveAccessState) {
   return accessState;
 }
@@ -439,8 +461,8 @@ export async function scanArchiveAccount({ accountId, manual = false }: ScanArch
     const finishedAt = new Date();
     const durationMs = finishedAt.getTime() - startedAt.getTime();
     const consecutiveFailures = account.consecutiveFailures + 1;
-    const shouldPause = consecutiveFailures >= 5;
     const message = getErrorMessage(error);
+    const failure = classifyScanFailure(message, consecutiveFailures);
 
     await prisma.archiveScanJob.update({
       where: { id: job.id },
@@ -448,7 +470,7 @@ export async function scanArchiveAccount({ accountId, manual = false }: ScanArch
         status: "failed",
         finishedAt,
         durationMs,
-        errorCode: message.includes("captcha") ? "CAPTCHA_REQUIRED" : "PARSE_ERROR",
+        errorCode: failure.errorCode,
         errorMessage: message,
       },
     });
@@ -458,8 +480,8 @@ export async function scanArchiveAccount({ accountId, manual = false }: ScanArch
         lastScannedAt: finishedAt,
         nextScanAt: calculateNextScanAt(account.scanIntervalSeconds, consecutiveFailures),
         consecutiveFailures,
-        scanEnabled: shouldPause ? false : account.scanEnabled,
-        status: shouldPause ? "paused" : "unstable",
+        scanEnabled: failure.shouldPause ? false : account.scanEnabled,
+        status: failure.accountStatus,
       },
     });
 
@@ -469,10 +491,10 @@ export async function scanArchiveAccount({ accountId, manual = false }: ScanArch
       url: account.profileUrl,
     });
 
-    if (shouldPause) {
+    if (failure.shouldPause) {
       await notifyArchiveAccountPaused({
         accountName: getAccountName(account),
-        body: `连续失败 ${consecutiveFailures} 次，已暂停自动扫描。`,
+        body: `原因: ${failure.errorCode}\n连续失败 ${consecutiveFailures} 次，已暂停自动扫描。`,
         url: account.profileUrl,
       });
     }
