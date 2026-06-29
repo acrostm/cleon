@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
+  Archive,
   Bell,
   ClipboardCheck,
   Command,
@@ -18,6 +19,7 @@ import {
   Satellite,
   Search,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -538,16 +540,17 @@ function Insight({ label, value }: { label: string; value: string }) {
 
 function MobileDock({ onCapture, onCommand }: { onCapture: () => void; onCommand: () => void }) {
   return (
-    <nav className="fixed inset-x-3 bottom-4 z-40 grid grid-cols-4 gap-2 rounded-lg border border-white/10 bg-[#0b0f17]/90 p-2 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl lg:hidden">
+    <nav className="fixed inset-x-3 bottom-4 z-40 grid grid-cols-5 gap-2 rounded-lg border border-white/10 bg-[#0b0f17]/90 p-2 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl lg:hidden">
       <DockButton icon={Plus} label="Collect" onClick={onCapture} />
       <DockLink icon={ClipboardCheck} label="Relay" href="/clipboard" />
+      <DockLink icon={Archive} label="Archive" href="/archive" />
       <DockLink icon={Bell} label="Bark" href="/admin/bark" />
       <DockButton icon={Command} label="Cmd" onClick={onCommand} />
     </nav>
   );
 }
 
-function DockButton({ icon: Icon, label, onClick }: { icon: typeof Plus; label: string; onClick: () => void }) {
+function DockButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="grid place-items-center gap-1 rounded-md px-2 py-2 text-[11px] font-bold text-slate-300 transition hover:bg-white/[0.08]">
       <Icon className="size-4" />
@@ -556,7 +559,7 @@ function DockButton({ icon: Icon, label, onClick }: { icon: typeof Plus; label: 
   );
 }
 
-function DockLink({ icon: Icon, label, href }: { icon: typeof ClipboardCheck; label: string; href: string }) {
+function DockLink({ icon: Icon, label, href }: { icon: LucideIcon; label: string; href: string }) {
   return (
     <Link href={href} className="grid place-items-center gap-1 rounded-md px-2 py-2 text-[11px] font-bold text-slate-300 transition hover:bg-white/[0.08]">
       <Icon className="size-4" />
@@ -607,6 +610,7 @@ function CommandPalette({
             <CommandItem icon={Link2} label="Collect URL" detail="Open capture composer" onClick={onCapture} />
             <CommandItem icon={RefreshCw} label="Refresh timeline" detail="Reload latest feed window" onClick={onRefresh} />
             <CommandHref icon={ClipboardCheck} label="Device Relay" detail="Open cross-platform clipboard" href="/clipboard" />
+            <CommandHref icon={Archive} label="XHS Archive" detail="Open public content archive" href="/archive" />
             <CommandHref icon={Bell} label="Bark Console" detail="Manage notification endpoints" href="/admin/bark" />
             <CommandItem icon={LogOut} label="Lock Cleon" detail="Clear this device session" onClick={onLogout} />
             <CommandItem icon={Inbox} label="Close palette" detail="Return to the feed" onClick={() => onOpenChange(false)} />
@@ -617,7 +621,7 @@ function CommandPalette({
   );
 }
 
-function CommandItem({ icon: Icon, label, detail, onClick }: { icon: typeof Link2; label: string; detail: string; onClick: () => void }) {
+function CommandItem({ icon: Icon, label, detail, onClick }: { icon: LucideIcon; label: string; detail: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="command-item flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-cyan-300/30 hover:bg-cyan-300/10">
       <span className="grid size-10 place-items-center rounded-md bg-white/[0.06] text-cyan-100">
@@ -631,7 +635,7 @@ function CommandItem({ icon: Icon, label, detail, onClick }: { icon: typeof Link
   );
 }
 
-function CommandHref({ icon: Icon, label, detail, href }: { icon: typeof ClipboardCheck; label: string; detail: string; href: string }) {
+function CommandHref({ icon: Icon, label, detail, href }: { icon: LucideIcon; label: string; detail: string; href: string }) {
   return (
     <Link href={href} className="command-item flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.04] p-3 text-left transition hover:border-cyan-300/30 hover:bg-cyan-300/10">
       <span className="grid size-10 place-items-center rounded-md bg-white/[0.06] text-cyan-100">
