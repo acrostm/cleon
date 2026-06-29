@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "bash ./build-and-notify.sh",
     "build:next": "next build",
+    "archive:worker": "node scripts/archive-worker.mjs",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
