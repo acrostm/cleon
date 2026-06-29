@@ -64,6 +64,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ? normalizeScanIntervalSeconds(accountType, body.scanIntervalSeconds)
       : existing.scanIntervalSeconds;
     const action = typeof body?.action === "string" ? body.action : "";
+    const shouldRefreshNextScan = action === "resume"
+      || body?.scanIntervalSeconds !== undefined
+      || body?.accountType !== undefined;
     const scanEnabled = action === "pause"
       ? false
       : action === "resume"
@@ -83,7 +86,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         ...(typeof body?.consentNote === "string" ? { consentNote: body.consentNote.trim() || null } : {}),
         scanEnabled,
         status: scanEnabled ? "active" : "paused",
-        nextScanAt: scanEnabled ? existing.nextScanAt || new Date(Date.now() + scanIntervalSeconds * 1000) : existing.nextScanAt,
+        nextScanAt: scanEnabled
+          ? shouldRefreshNextScan
+            ? new Date(Date.now() + scanIntervalSeconds * 1000)
+            : existing.nextScanAt || new Date(Date.now() + scanIntervalSeconds * 1000)
+          : existing.nextScanAt,
       },
     });
 

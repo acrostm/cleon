@@ -16,6 +16,7 @@ import {
   ImageIcon,
   Loader2,
   Pause,
+  Pencil,
   Play,
   Plus,
   RefreshCw,
@@ -236,9 +237,11 @@ export function ArchiveConsole() {
   const [posts, setPosts] = useState<ArchivePost[]>([]);
   const [auditLogs, setAuditLogs] = useState<ArchiveAuditLog[]>([]);
   const [selectedPost, setSelectedPost] = useState<ArchivePost | null>(null);
+  const [editingAccount, setEditingAccount] = useState<ArchiveAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [accountForm, setAccountForm] = useState(emptyAccountForm);
+  const [editAccountForm, setEditAccountForm] = useState(emptyAccountForm);
   const [importUrl, setImportUrl] = useState("");
   const [importAccountId, setImportAccountId] = useState("");
   const [postKeyword, setPostKeyword] = useState("");
@@ -318,6 +321,44 @@ export function ArchiveConsole() {
     } catch (error) {
       console.error("[Archive Account Create Error]:", error);
       toast.error(error instanceof Error ? error.message : "Unable to add account");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const openEditAccount = (account: ArchiveAccount) => {
+    setEditingAccount(account);
+    setEditAccountForm({
+      profileUrl: account.profileUrl,
+      displayName: account.displayName || "",
+      accountType: account.accountType,
+      scanIntervalSeconds: String(account.scanIntervalSeconds),
+      remark: account.remark || "",
+      consentNote: "",
+    });
+  };
+
+  const handleUpdateAccount = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingAccount || isBusy) return;
+
+    setIsBusy(true);
+    try {
+      await fetchJson(`/api/archive/accounts/${editingAccount.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...editAccountForm,
+          scanIntervalSeconds: Number.parseInt(editAccountForm.scanIntervalSeconds, 10),
+          scanEnabled: editingAccount.scanEnabled,
+        }),
+      });
+      setEditingAccount(null);
+      toast.success("Archive account updated");
+      await Promise.all([loadAccounts(), loadDashboard(), loadAuditLogs()]);
+    } catch (error) {
+      console.error("[Archive Account Update Error]:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to update account");
     } finally {
       setIsBusy(false);
     }
@@ -482,6 +523,7 @@ export function ArchiveConsole() {
                 isBusy={isBusy}
                 onSubmit={handleCreateAccount}
                 onAction={handleAccountAction}
+                onEdit={openEditAccount}
               />
             )}
             {activeTab === "posts" && (
@@ -518,6 +560,16 @@ export function ArchiveConsole() {
         }}
         onRecheck={handleRecheckPost}
         onDelete={handleDeletePost}
+      />
+      <AccountEditDialog
+        account={editingAccount}
+        form={editAccountForm}
+        setForm={setEditAccountForm}
+        isBusy={isBusy}
+        onSubmit={handleUpdateAccount}
+        onOpenChange={(open) => {
+          if (!open) setEditingAccount(null);
+        }}
       />
     </main>
   );
@@ -617,6 +669,7 @@ function AccountsView({
   isBusy,
   onSubmit,
   onAction,
+  onEdit,
 }: {
   form: typeof emptyAccountForm;
   setForm: (form: typeof emptyAccountForm) => void;
@@ -624,6 +677,7 @@ function AccountsView({
   isBusy: boolean;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onAction: (account: ArchiveAccount, action: "pause" | "resume" | "scan") => void;
+  onEdit: (account: ArchiveAccount) => void;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
@@ -631,6 +685,7 @@ function AccountsView({
         <h2 className="text-xl font-black text-white">Add public account</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Only public or authorized Xiaohongshu profile URLs are accepted. Public accounts are clamped to 600 seconds or slower.
+          Vercel Cron only wakes the worker; this interval decides whether this account is due when the worker runs.
         </p>
         <form onSubmit={onSubmit} className="mt-5 grid gap-3">
           <Control label="Profile URL">
@@ -665,9 +720,11 @@ function AccountsView({
                 <option value="own">own</option>
               </select>
             </Control>
-            <Control label="Scan interval">
+            <Control label="Scan interval (seconds)">
               <Input
                 type="number"
+                min={form.accountType === "public" ? 600 : 300}
+                step={60}
                 value={form.scanIntervalSeconds}
                 onChange={(event) => setForm({ ...form, scanIntervalSeconds: event.target.value })}
                 className="h-11 border-white/10 bg-black/25 text-white"
@@ -706,6 +763,10 @@ function AccountsView({
                   <p className="mt-2 truncate text-xs text-slate-500">{account.profileUrl}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onEdit(account)} className="border-white/10 bg-white/[0.05] text-slate-100">
+                    <Pencil className="size-3.5" />
+                    Edit
+                  </Button>
                   <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onAction(account, "scan")} className="border-white/10 bg-white/[0.05] text-slate-100">
                     <RefreshCw className="size-3.5" />
                     Scan
@@ -718,7 +779,7 @@ function AccountsView({
               </div>
               <div className="mt-4 grid gap-2 text-xs text-slate-500 sm:grid-cols-4">
                 <MiniStat label="Posts" value={String(account._count?.posts ?? 0)} />
-                <MiniStat label="Interval" value={`${account.scanIntervalSeconds}s`} />
+                <MiniStat label="Interval" value={`${account.scanIntervalSeconds} sec`} />
                 <MiniStat label="Last scan" value={formatDate(account.lastScannedAt)} />
                 <MiniStat label="Failures" value={String(account.consecutiveFailures)} />
               </div>
@@ -872,6 +933,95 @@ function AuditView({ logs }: { logs: ArchiveAuditLog[] }) {
         ))}
       </div>
     </CommandCenterSurface>
+  );
+}
+
+function AccountEditDialog({
+  account,
+  form,
+  setForm,
+  isBusy,
+  onSubmit,
+  onOpenChange,
+}: {
+  account: ArchiveAccount | null;
+  form: typeof emptyAccountForm;
+  setForm: (form: typeof emptyAccountForm) => void;
+  isBusy: boolean;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={Boolean(account)} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton className="rounded-lg border-white/10 bg-[#0b0f17]/95 p-0 text-slate-100 shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-2xl">
+        <form onSubmit={onSubmit} className="grid gap-4 p-5">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black text-white">Edit archive account</DialogTitle>
+            <DialogDescription className="text-slate-500">
+              Change profile metadata and the per-account scan interval. Public accounts cannot scan faster than 600 seconds.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Control label="Profile URL">
+            <Input
+              value={form.profileUrl}
+              onChange={(event) => setForm({ ...form, profileUrl: event.target.value })}
+              className="h-11 border-white/10 bg-black/25 text-white"
+            />
+          </Control>
+          <Control label="Display name">
+            <Input
+              value={form.displayName}
+              onChange={(event) => setForm({ ...form, displayName: event.target.value })}
+              className="h-11 border-white/10 bg-black/25 text-white"
+            />
+          </Control>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Control label="Account type">
+              <select
+                value={form.accountType}
+                onChange={(event) => setForm({
+                  ...form,
+                  accountType: event.target.value,
+                  scanIntervalSeconds: event.target.value === "public" ? "600" : "300",
+                })}
+                className="h-11 w-full rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-white outline-none focus:border-cyan-300/40"
+              >
+                <option value="public">public</option>
+                <option value="authorized">authorized</option>
+                <option value="own">own</option>
+              </select>
+            </Control>
+            <Control label="Scan interval (seconds)">
+              <Input
+                type="number"
+                min={form.accountType === "public" ? 600 : 300}
+                step={60}
+                value={form.scanIntervalSeconds}
+                onChange={(event) => setForm({ ...form, scanIntervalSeconds: event.target.value })}
+                className="h-11 border-white/10 bg-black/25 text-white"
+              />
+            </Control>
+          </div>
+          <Control label="Remark">
+            <textarea
+              value={form.remark}
+              onChange={(event) => setForm({ ...form, remark: event.target.value })}
+              className="min-h-24 w-full resize-none rounded-lg border border-white/10 bg-black/25 px-3 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/40"
+            />
+          </Control>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" disabled={isBusy} onClick={() => onOpenChange(false)} className="border-white/10 bg-white/[0.05] text-slate-100">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isBusy || !form.profileUrl.trim()} className="rounded-md bg-cyan-300 font-black text-slate-950 hover:bg-cyan-200">
+              {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
