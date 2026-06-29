@@ -29,6 +29,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Manual scan is limited to once per account per minute" }, { status: 429 });
     }
 
+    const account = await prisma.archiveAccount.findUnique({ where: { id } });
+    if (!account) return NextResponse.json({ error: "Archive account not found" }, { status: 404 });
+
+    if (account.authMode === "authorized_browser") {
+      await prisma.archiveAccount.update({
+        where: { id },
+        data: {
+          scanEnabled: true,
+          status: "active",
+          nextScanAt: new Date(),
+        },
+      });
+      await recordArchiveAudit({
+        action: "ACCOUNT_SCAN_QUEUED",
+        targetType: "ArchiveAccount",
+        targetId: id,
+        metadata: { worker: "cloudflare", authMode: account.authMode },
+        req,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          queued: true,
+          message: "Authorized account queued for the Cloudflare archive worker.",
+        },
+      });
+    }
+
     const job = await scanArchiveAccount({ accountId: id, manual: true });
     await recordArchiveAudit({
       action: "ACCOUNT_SCAN_STARTED",

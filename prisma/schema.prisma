@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 model Post {
@@ -29,9 +29,9 @@ model Post {
 model UrlSubmission {
   id           String   @id @default(uuid())
   url          String
-  source       String   // "FEISHU" or "WEB"
-  status       String   // "SUCCESS", "FAILED", "DUPLICATE", "REJECTED"
-  postId       String?  // References Post.id if successful
+  source       String // "FEISHU" or "WEB"
+  status       String // "SUCCESS", "FAILED", "DUPLICATE", "REJECTED"
+  postId       String? // References Post.id if successful
   errorMessage String?  @db.Text
   createdAt    DateTime @default(now())
 
@@ -54,62 +54,92 @@ model BarkConfig {
 }
 
 model ArchiveAccount {
-  id                    String           @id @default(uuid())
-  profileUrl            String           @unique @db.Text
-  displayName           String?
-  platformUserId        String?
-  nickname              String?
-  avatarUrl             String?          @db.Text
-  accountType           String           @default("public")
-  consentStatus         String           @default("unknown")
-  consentNote           String?          @db.Text
-  scanEnabled           Boolean          @default(true)
-  scanIntervalSeconds   Int              @default(600)
-  lastScannedAt         DateTime?
-  nextScanAt            DateTime?
-  lastSuccessAt         DateTime?
-  recentNewPostAt       DateTime?
-  consecutiveFailures   Int              @default(0)
-  status                String           @default("active")
-  remark                String?          @db.Text
-  createdBy             String?
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  posts                 ArchivePost[]
-  scanJobs              ArchiveScanJob[]
+  id                  String              @id @default(uuid())
+  profileUrl          String              @unique @db.Text
+  displayName         String?
+  platformUserId      String?
+  nickname            String?
+  avatarUrl           String?             @db.Text
+  accountType         String              @default("public")
+  consentStatus       String              @default("unknown")
+  consentNote         String?             @db.Text
+  authMode            String              @default("public")
+  authProfileId       String?
+  authProfile         ArchiveAuthProfile? @relation(fields: [authProfileId], references: [id], onDelete: SetNull)
+  authStatus          String              @default("none")
+  lastAuthCheckAt     DateTime?
+  authFailureReason   String?             @db.Text
+  scanEnabled         Boolean             @default(true)
+  scanIntervalSeconds Int                 @default(600)
+  lastScannedAt       DateTime?
+  nextScanAt          DateTime?
+  lastSuccessAt       DateTime?
+  recentNewPostAt     DateTime?
+  consecutiveFailures Int                 @default(0)
+  status              String              @default("active")
+  remark              String?             @db.Text
+  createdBy           String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  posts               ArchivePost[]
+  scanJobs            ArchiveScanJob[]
 
   @@index([accountType])
+  @@index([authMode])
+  @@index([authProfileId])
+  @@index([authStatus])
   @@index([scanEnabled, nextScanAt])
   @@index([status])
   @@index([createdAt])
 }
 
+model ArchiveAuthProfile {
+  id                 String           @id @default(uuid())
+  name               String
+  provider           String           @default("cloudflare_browser_run")
+  workerBaseUrl      String?          @db.Text
+  authStateKey       String?          @unique
+  status             String           @default("pending")
+  lastLoginStartedAt DateTime?
+  lastVerifiedAt     DateTime?
+  lastFailureAt      DateTime?
+  failureReason      String?          @db.Text
+  metadata           Json?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  accounts           ArchiveAccount[]
+
+  @@index([provider])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model ArchivePost {
-  id                    String                @id @default(uuid())
-  accountId             String?
-  account               ArchiveAccount?       @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  originalUrl           String                @unique @db.Text
-  platform              String                @default("XIAOHONGSHU")
-  platformNoteId        String?
-  title                 String?               @db.Text
-  contentText           String                @default("") @db.Text
-  coverSourceUrl        String?               @db.Text
-  coverStorageUrl       String?               @db.Text
-  authorName            String?
-  publishTime           DateTime?
-  firstSeenAt           DateTime              @default(now())
-  archivedAt            DateTime?
-  lastSeenAt            DateTime?
-  lastCheckedAt         DateTime?
-  status                String                @default("discovered")
-  contentHash           String?
-  rawData               Json?
-  archiveError          String?               @db.Text
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  assets                ArchiveAsset[]
-  snapshots             ArchiveSnapshot[]
-  statusEvents          ArchiveStatusEvent[]
+  id              String               @id @default(uuid())
+  accountId       String?
+  account         ArchiveAccount?      @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  originalUrl     String               @unique @db.Text
+  platform        String               @default("XIAOHONGSHU")
+  platformNoteId  String?
+  title           String?              @db.Text
+  contentText     String               @default("") @db.Text
+  coverSourceUrl  String?              @db.Text
+  coverStorageUrl String?              @db.Text
+  authorName      String?
+  publishTime     DateTime?
+  firstSeenAt     DateTime             @default(now())
+  archivedAt      DateTime?
+  lastSeenAt      DateTime?
+  lastCheckedAt   DateTime?
+  status          String               @default("discovered")
+  contentHash     String?
+  rawData         Json?
+  archiveError    String?              @db.Text
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  assets          ArchiveAsset[]
+  snapshots       ArchiveSnapshot[]
+  statusEvents    ArchiveStatusEvent[]
 
   @@index([accountId])
   @@index([platformNoteId])
@@ -209,4 +239,22 @@ model ArchiveAuditLog {
   @@index([action])
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+model ArchiveWorkerHeartbeat {
+  id                 String    @id @default(uuid())
+  workerId           String    @unique
+  workerUrl          String?   @db.Text
+  status             String    @default("unknown")
+  dailyBudgetSeconds Int       @default(600)
+  dailyUsedSeconds   Int       @default(0)
+  pausedUntil        DateTime?
+  lastError          String?   @db.Text
+  metadata           Json?
+  lastSeenAt         DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([status])
+  @@index([lastSeenAt])
 }

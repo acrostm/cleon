@@ -10,15 +10,18 @@ import {
   ArrowLeft,
   CalendarClock,
   CheckCircle2,
+  Cloud,
   Database,
   ExternalLink,
   FileClock,
   ImageIcon,
+  KeyRound,
   Loader2,
   Pause,
   Pencil,
   Play,
   Plus,
+  QrCode,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -51,6 +54,12 @@ type ArchiveAccount = {
   nickname?: string | null;
   avatarUrl?: string | null;
   accountType: string;
+  authMode: string;
+  authProfileId?: string | null;
+  authProfile?: ArchiveAuthProfile | null;
+  authStatus: string;
+  lastAuthCheckAt?: string | null;
+  authFailureReason?: string | null;
   scanEnabled: boolean;
   scanIntervalSeconds: number;
   lastScannedAt?: string | null;
@@ -62,6 +71,35 @@ type ArchiveAccount = {
   remark?: string | null;
   createdAt: string;
   _count?: { posts: number; scanJobs: number };
+};
+
+type ArchiveAuthProfile = {
+  id: string;
+  name: string;
+  provider: string;
+  workerBaseUrl?: string | null;
+  authStateKey?: string | null;
+  status: string;
+  lastLoginStartedAt?: string | null;
+  lastVerifiedAt?: string | null;
+  lastFailureAt?: string | null;
+  failureReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  accounts?: ArchiveAccount[];
+  _count?: { accounts: number };
+};
+
+type ArchiveWorkerHeartbeat = {
+  id: string;
+  workerId: string;
+  workerUrl?: string | null;
+  status: string;
+  dailyBudgetSeconds: number;
+  dailyUsedSeconds: number;
+  pausedUntil?: string | null;
+  lastError?: string | null;
+  lastSeenAt: string;
 };
 
 type ArchiveAsset = {
@@ -140,6 +178,8 @@ type DashboardData = {
   queueBacklog: number;
   storageUsedBytes: number;
   latestPosts: ArchivePost[];
+  authProfiles: ArchiveAuthProfile[];
+  workerHeartbeats: ArchiveWorkerHeartbeat[];
   failedScans: Array<{
     id: string;
     errorMessage?: string | null;
@@ -174,9 +214,16 @@ const emptyAccountForm = {
   profileUrl: "",
   displayName: "",
   accountType: "public",
+  authMode: "public",
+  authProfileId: "",
   scanIntervalSeconds: "600",
   remark: "",
   consentNote: "",
+};
+
+const emptyAuthProfileForm = {
+  name: "XHS Cloudflare Auth",
+  workerBaseUrl: "",
 };
 
 const postStatuses = [
@@ -234,10 +281,19 @@ export function ArchiveConsole() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [accounts, setAccounts] = useState<ArchiveAccount[]>([]);
+  const [authProfiles, setAuthProfiles] = useState<ArchiveAuthProfile[]>([]);
   const [posts, setPosts] = useState<ArchivePost[]>([]);
   const [auditLogs, setAuditLogs] = useState<ArchiveAuditLog[]>([]);
   const [selectedPost, setSelectedPost] = useState<ArchivePost | null>(null);
   const [editingAccount, setEditingAccount] = useState<ArchiveAccount | null>(null);
+  const [authProfileForm, setAuthProfileForm] = useState(emptyAuthProfileForm);
+  const [authLogin, setAuthLogin] = useState<{
+    profileId: string;
+    sessionId: string;
+    screenshotDataUrl?: string;
+    status: string;
+    message?: string;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [accountForm, setAccountForm] = useState(emptyAccountForm);
@@ -258,6 +314,11 @@ export function ArchiveConsole() {
     setAccounts(data.data);
   }, []);
 
+  const loadAuthProfiles = useCallback(async () => {
+    const data = await fetchJson<{ success: boolean; data: ArchiveAuthProfile[] }>("/api/archive/auth-profiles");
+    setAuthProfiles(data.data);
+  }, []);
+
   const loadPosts = useCallback(async () => {
     const params = new URLSearchParams({ pageSize: "30" });
     if (postKeyword.trim()) params.set("keyword", postKeyword.trim());
@@ -276,14 +337,14 @@ export function ArchiveConsole() {
   const loadAll = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([loadDashboard(), loadAccounts(), loadPosts(), loadAuditLogs()]);
+      await Promise.all([loadDashboard(), loadAccounts(), loadAuthProfiles(), loadPosts(), loadAuditLogs()]);
     } catch (error) {
       console.error("[Archive Load Error]:", error);
       toast.error(error instanceof Error ? error.message : "Unable to load archive console");
     } finally {
       setIsLoading(false);
     }
-  }, [loadAccounts, loadAuditLogs, loadDashboard, loadPosts]);
+  }, [loadAccounts, loadAuditLogs, loadAuthProfiles, loadDashboard, loadPosts]);
 
   useEffect(() => {
     void loadAll();
@@ -332,6 +393,8 @@ export function ArchiveConsole() {
       profileUrl: account.profileUrl,
       displayName: account.displayName || "",
       accountType: account.accountType,
+      authMode: account.authMode || "public",
+      authProfileId: account.authProfileId || "",
       scanIntervalSeconds: String(account.scanIntervalSeconds),
       remark: account.remark || "",
       consentNote: "",
@@ -359,6 +422,124 @@ export function ArchiveConsole() {
     } catch (error) {
       console.error("[Archive Account Update Error]:", error);
       toast.error(error instanceof Error ? error.message : "Unable to update account");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleCreateAuthProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isBusy) return;
+
+    setIsBusy(true);
+    try {
+      await fetchJson("/api/archive/auth-profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(authProfileForm),
+      });
+      setAuthProfileForm(emptyAuthProfileForm);
+      toast.success("Cloudflare auth profile created");
+      await Promise.all([loadAuthProfiles(), loadDashboard(), loadAuditLogs()]);
+    } catch (error) {
+      console.error("[Archive Auth Profile Create Error]:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to create auth profile");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleStartAuthLogin = async (profile: ArchiveAuthProfile) => {
+    setIsBusy(true);
+    try {
+      const data = await fetchJson<{
+        success: boolean;
+        data: {
+          worker?: {
+            sessionId?: string;
+            screenshotDataUrl?: string;
+            status?: string;
+            message?: string;
+          };
+        };
+      }>(`/api/archive/auth-profiles/${profile.id}/start`, { method: "POST" });
+      const sessionId = data.data.worker?.sessionId;
+      if (!sessionId) throw new Error("Cloudflare worker did not return a login session");
+      setAuthLogin({
+        profileId: profile.id,
+        sessionId,
+        screenshotDataUrl: data.data.worker?.screenshotDataUrl,
+        status: data.data.worker?.status || "pending",
+        message: data.data.worker?.message,
+      });
+      toast.success("Cloudflare login session started");
+      await Promise.all([loadAuthProfiles(), loadDashboard(), loadAuditLogs()]);
+    } catch (error) {
+      console.error("[Archive Auth Login Start Error]:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to start Cloudflare login");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handlePollAuthLogin = async () => {
+    if (!authLogin || isBusy) return;
+
+    setIsBusy(true);
+    try {
+      const params = new URLSearchParams({ sessionId: authLogin.sessionId });
+      const data = await fetchJson<{
+        success: boolean;
+        data?: {
+          status?: string;
+          authenticated?: boolean;
+          screenshotDataUrl?: string;
+          message?: string;
+        };
+      }>(`/api/archive/auth-profiles/${authLogin.profileId}/status?${params.toString()}`);
+      setAuthLogin({
+        ...authLogin,
+        status: data.data?.status || authLogin.status,
+        screenshotDataUrl: data.data?.screenshotDataUrl || authLogin.screenshotDataUrl,
+        message: data.data?.message,
+      });
+      if (data.data?.authenticated) {
+        toast.success("Cloudflare auth profile is active");
+        await Promise.all([loadAuthProfiles(), loadAccounts(), loadDashboard(), loadAuditLogs()]);
+      }
+    } catch (error) {
+      console.error("[Archive Auth Login Poll Error]:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to poll Cloudflare login");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleEnableAuthorizedWorker = async (account: ArchiveAccount) => {
+    const profile = authProfiles.find((item) => item.status === "active") || authProfiles[0];
+    if (!profile) {
+      toast.error("Create a Cloudflare auth profile first");
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      await fetchJson(`/api/archive/accounts/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authMode: "authorized_browser",
+          authProfileId: profile.id,
+          accountType: account.accountType === "public" ? "authorized" : account.accountType,
+          scanEnabled: true,
+          action: "resume",
+        }),
+      });
+      toast.success("Account switched to Cloudflare authorized worker");
+      await Promise.all([loadAccounts(), loadDashboard(), loadAuditLogs()]);
+    } catch (error) {
+      console.error("[Archive Enable Authorized Worker Error]:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to enable authorized worker");
     } finally {
       setIsBusy(false);
     }
@@ -519,11 +700,17 @@ export function ArchiveConsole() {
               <AccountsView
                 form={accountForm}
                 setForm={setAccountForm}
+                authProfileForm={authProfileForm}
+                setAuthProfileForm={setAuthProfileForm}
                 accounts={accounts}
+                authProfiles={authProfiles}
                 isBusy={isBusy}
                 onSubmit={handleCreateAccount}
+                onCreateAuthProfile={handleCreateAuthProfile}
+                onStartAuthLogin={handleStartAuthLogin}
                 onAction={handleAccountAction}
                 onEdit={openEditAccount}
+                onEnableAuthorizedWorker={handleEnableAuthorizedWorker}
               />
             )}
             {activeTab === "posts" && (
@@ -570,6 +757,15 @@ export function ArchiveConsole() {
         onOpenChange={(open) => {
           if (!open) setEditingAccount(null);
         }}
+        authProfiles={authProfiles}
+      />
+      <AuthLoginDialog
+        login={authLogin}
+        isBusy={isBusy}
+        onPoll={handlePollAuthLogin}
+        onOpenChange={(open) => {
+          if (!open) setAuthLogin(null);
+        }}
       />
     </main>
   );
@@ -606,6 +802,67 @@ function DashboardView({ dashboard, onOpenPost }: { dashboard: DashboardData; on
         {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />
         ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <CommandCenterSurface className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-white">Cloudflare Worker</h2>
+              <p className="mt-1 text-sm text-slate-500">Cron, Browser Run budget, and latest heartbeat.</p>
+            </div>
+            <Cloud className="size-5 text-cyan-200" />
+          </div>
+          <div className="mt-4 grid gap-3">
+            {dashboard.workerHeartbeats.length === 0 ? (
+              <EmptyState label="No worker heartbeat yet" />
+            ) : dashboard.workerHeartbeats.map((worker) => {
+              const percent = worker.dailyBudgetSeconds > 0 ? Math.min(100, Math.round((worker.dailyUsedSeconds / worker.dailyBudgetSeconds) * 100)) : 0;
+              return (
+                <div key={worker.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-black text-white">{worker.workerId}</p>
+                    <StatusBadge status={worker.status} />
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">{worker.workerUrl || "Worker URL not reported"}</p>
+                  <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+                    <MiniStat label="Budget" value={`${worker.dailyUsedSeconds}/${worker.dailyBudgetSeconds}s`} />
+                    <MiniStat label="Used" value={`${percent}%`} />
+                    <MiniStat label="Last seen" value={formatDate(worker.lastSeenAt)} />
+                  </div>
+                  {worker.lastError && <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-2 text-xs text-amber-100">{worker.lastError}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </CommandCenterSurface>
+
+        <CommandCenterSurface className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-white">Authorized Users</h2>
+              <p className="mt-1 text-sm text-slate-500">Cloudflare Browser Run login profiles.</p>
+            </div>
+            <KeyRound className="size-5 text-cyan-200" />
+          </div>
+          <div className="mt-4 grid gap-3">
+            {dashboard.authProfiles.length === 0 ? (
+              <EmptyState label="No auth profiles configured" />
+            ) : dashboard.authProfiles.map((profile) => (
+              <div key={profile.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-black text-white">{profile.name}</p>
+                  <StatusBadge status={profile.status} />
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+                  <MiniStat label="Accounts" value={String(profile._count?.accounts ?? 0)} />
+                  <MiniStat label="Verified" value={formatDate(profile.lastVerifiedAt)} />
+                  <MiniStat label="Failure" value={profile.failureReason || "None"} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CommandCenterSurface>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
@@ -665,22 +922,35 @@ function DashboardView({ dashboard, onOpenPost }: { dashboard: DashboardData; on
 function AccountsView({
   form,
   setForm,
+  authProfileForm,
+  setAuthProfileForm,
   accounts,
+  authProfiles,
   isBusy,
   onSubmit,
+  onCreateAuthProfile,
+  onStartAuthLogin,
   onAction,
   onEdit,
+  onEnableAuthorizedWorker,
 }: {
   form: typeof emptyAccountForm;
   setForm: (form: typeof emptyAccountForm) => void;
+  authProfileForm: typeof emptyAuthProfileForm;
+  setAuthProfileForm: (form: typeof emptyAuthProfileForm) => void;
   accounts: ArchiveAccount[];
+  authProfiles: ArchiveAuthProfile[];
   isBusy: boolean;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onCreateAuthProfile: (event: React.FormEvent<HTMLFormElement>) => void;
+  onStartAuthLogin: (profile: ArchiveAuthProfile) => void;
   onAction: (account: ArchiveAccount, action: "pause" | "resume" | "scan") => void;
   onEdit: (account: ArchiveAccount) => void;
+  onEnableAuthorizedWorker: (account: ArchiveAccount) => void;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+      <div className="grid gap-4">
       <CommandCenterSurface className="p-5">
         <h2 className="text-xl font-black text-white">Add public account</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -731,6 +1001,36 @@ function AccountsView({
               />
             </Control>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Control label="Auth mode">
+              <select
+                value={form.authMode}
+                onChange={(event) => setForm({
+                  ...form,
+                  authMode: event.target.value,
+                  accountType: event.target.value === "authorized_browser" && form.accountType === "public" ? "authorized" : form.accountType,
+                  scanIntervalSeconds: event.target.value === "authorized_browser" ? "300" : form.scanIntervalSeconds,
+                })}
+                className="h-11 w-full rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-white outline-none focus:border-cyan-300/40"
+              >
+                <option value="public">public fetch</option>
+                <option value="authorized_browser">Cloudflare authorized browser</option>
+              </select>
+            </Control>
+            <Control label="Auth profile">
+              <select
+                value={form.authProfileId}
+                onChange={(event) => setForm({ ...form, authProfileId: event.target.value })}
+                disabled={form.authMode !== "authorized_browser"}
+                className="h-11 w-full rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-white outline-none focus:border-cyan-300/40 disabled:opacity-50"
+              >
+                <option value="">None</option>
+                {authProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.name}</option>
+                ))}
+              </select>
+            </Control>
+          </div>
           <Control label="Remark">
             <textarea
               value={form.remark}
@@ -747,6 +1047,64 @@ function AccountsView({
       </CommandCenterSurface>
 
       <CommandCenterSurface className="p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black text-white">Cloudflare Auth Profiles</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Browser Run login state for own or authorized Xiaohongshu accounts.</p>
+          </div>
+          <Cloud className="size-5 text-cyan-200" />
+        </div>
+        <form onSubmit={onCreateAuthProfile} className="mt-4 grid gap-3">
+          <Control label="Profile name">
+            <Input
+              value={authProfileForm.name}
+              onChange={(event) => setAuthProfileForm({ ...authProfileForm, name: event.target.value })}
+              className="h-11 border-white/10 bg-black/25 text-white"
+            />
+          </Control>
+          <Control label="Worker URL">
+            <Input
+              value={authProfileForm.workerBaseUrl}
+              onChange={(event) => setAuthProfileForm({ ...authProfileForm, workerBaseUrl: event.target.value })}
+              placeholder="https://cleon-xhs-archive-worker.<subdomain>.workers.dev"
+              className="h-11 border-white/10 bg-black/25 text-white placeholder:text-slate-600"
+            />
+          </Control>
+          <Button type="submit" disabled={isBusy} className="h-11 rounded-md bg-white text-slate-950 font-black hover:bg-cyan-100">
+            {isBusy ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
+            Add auth profile
+          </Button>
+        </form>
+        <div className="mt-4 grid gap-3">
+          {authProfiles.length === 0 ? (
+            <EmptyState label="No Cloudflare auth profiles" />
+          ) : authProfiles.map((profile) => (
+            <div key={profile.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-black text-white">{profile.name}</p>
+                    <StatusBadge status={profile.status} />
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">{profile.workerBaseUrl || "Worker URL from env"}</p>
+                </div>
+                <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onStartAuthLogin(profile)} className="border-white/10 bg-white/[0.05] text-slate-100">
+                  <QrCode className="size-3.5" />
+                  Start Login
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+                <MiniStat label="Accounts" value={String(profile._count?.accounts ?? profile.accounts?.length ?? 0)} />
+                <MiniStat label="Verified" value={formatDate(profile.lastVerifiedAt)} />
+                <MiniStat label="Failure" value={profile.failureReason || "None"} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CommandCenterSurface>
+      </div>
+
+      <CommandCenterSurface className="p-5">
         <h2 className="text-xl font-black text-white">Managed accounts</h2>
         <div className="mt-4 grid gap-3">
           {accounts.length === 0 ? (
@@ -759,6 +1117,8 @@ function AccountsView({
                     <h3 className="truncate text-base font-black text-white">{getAccountLabel(account)}</h3>
                     <StatusBadge status={account.status} />
                     <Badge className="border-white/10 bg-white/[0.06] text-slate-300" variant="outline">{account.accountType}</Badge>
+                    <Badge className="border-cyan-300/20 bg-cyan-300/10 text-cyan-100" variant="outline">{account.authMode || "public"}</Badge>
+                    {account.authStatus && account.authStatus !== "none" && <StatusBadge status={account.authStatus} />}
                   </div>
                   <p className="mt-2 truncate text-xs text-slate-500">{account.profileUrl}</p>
                 </div>
@@ -775,6 +1135,12 @@ function AccountsView({
                     {account.scanEnabled ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
                     {account.scanEnabled ? "Pause" : "Resume"}
                   </Button>
+                  {account.status === "login_required" && account.authMode !== "authorized_browser" && (
+                    <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onEnableAuthorizedWorker(account)} className="border-cyan-300/30 bg-cyan-300/10 text-cyan-50">
+                      <Cloud className="size-3.5" />
+                      Use Auth
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="mt-4 grid gap-2 text-xs text-slate-500 sm:grid-cols-4">
@@ -783,6 +1149,9 @@ function AccountsView({
                 <MiniStat label="Last scan" value={formatDate(account.lastScannedAt)} />
                 <MiniStat label="Failures" value={String(account.consecutiveFailures)} />
               </div>
+              {account.authFailureReason && (
+                <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">{account.authFailureReason}</p>
+              )}
             </div>
           ))}
         </div>
@@ -943,6 +1312,7 @@ function AccountEditDialog({
   isBusy,
   onSubmit,
   onOpenChange,
+  authProfiles,
 }: {
   account: ArchiveAccount | null;
   form: typeof emptyAccountForm;
@@ -950,6 +1320,7 @@ function AccountEditDialog({
   isBusy: boolean;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onOpenChange: (open: boolean) => void;
+  authProfiles: ArchiveAuthProfile[];
 }) {
   return (
     <Dialog open={Boolean(account)} onOpenChange={onOpenChange}>
@@ -1003,6 +1374,36 @@ function AccountEditDialog({
               />
             </Control>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Control label="Auth mode">
+              <select
+                value={form.authMode}
+                onChange={(event) => setForm({
+                  ...form,
+                  authMode: event.target.value,
+                  accountType: event.target.value === "authorized_browser" && form.accountType === "public" ? "authorized" : form.accountType,
+                  scanIntervalSeconds: event.target.value === "authorized_browser" ? "300" : form.scanIntervalSeconds,
+                })}
+                className="h-11 w-full rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-white outline-none focus:border-cyan-300/40"
+              >
+                <option value="public">public fetch</option>
+                <option value="authorized_browser">Cloudflare authorized browser</option>
+              </select>
+            </Control>
+            <Control label="Auth profile">
+              <select
+                value={form.authProfileId}
+                onChange={(event) => setForm({ ...form, authProfileId: event.target.value })}
+                disabled={form.authMode !== "authorized_browser"}
+                className="h-11 w-full rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-bold text-white outline-none focus:border-cyan-300/40 disabled:opacity-50"
+              >
+                <option value="">None</option>
+                {authProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.name}</option>
+                ))}
+              </select>
+            </Control>
+          </div>
           <Control label="Remark">
             <textarea
               value={form.remark}
@@ -1020,6 +1421,63 @@ function AccountEditDialog({
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AuthLoginDialog({
+  login,
+  isBusy,
+  onPoll,
+  onOpenChange,
+}: {
+  login: {
+    profileId: string;
+    sessionId: string;
+    screenshotDataUrl?: string;
+    status: string;
+    message?: string;
+  } | null;
+  isBusy: boolean;
+  onPoll: () => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={Boolean(login)} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton className="rounded-lg border-white/10 bg-[#0b0f17]/95 p-0 text-slate-100 shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:max-w-lg">
+        {login && (
+          <div className="grid gap-4 p-5">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black text-white">Cloudflare Login</DialogTitle>
+              <DialogDescription className="text-slate-500">
+                Scan or complete the Xiaohongshu login shown in the Browser Run screenshot, then poll status.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="overflow-hidden rounded-lg border border-white/10 bg-black/30">
+              {login.screenshotDataUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={login.screenshotDataUrl} alt="Cloudflare Xiaohongshu login session" className="mx-auto max-h-[560px] w-full object-contain" />
+              ) : (
+                <div className="flex h-80 items-center justify-center text-sm text-slate-500">No screenshot yet</div>
+              )}
+            </div>
+            <div className="grid gap-2 text-xs text-slate-500">
+              <MiniStat label="Session" value={login.sessionId} />
+              <MiniStat label="Status" value={login.status} />
+              <MiniStat label="Message" value={login.message || "Waiting"} />
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" disabled={isBusy} onClick={() => onOpenChange(false)} className="border-white/10 bg-white/[0.05] text-slate-100">
+                Close
+              </Button>
+              <Button type="button" disabled={isBusy} onClick={onPoll} className="rounded-md bg-cyan-300 font-black text-slate-950 hover:bg-cyan-200">
+                {isBusy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                Poll status
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

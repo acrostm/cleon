@@ -4,6 +4,8 @@ import {
   MIN_AUTHORIZED_SCAN_INTERVAL_SECONDS,
   MIN_PUBLIC_SCAN_INTERVAL_SECONDS,
   archiveAccountTypes,
+  archiveAuthModes,
+  type ArchiveAuthMode,
   type ArchiveAccountType,
 } from "@/lib/archive/types";
 import { extractUrl, validateUrl } from "@/lib/utils/url";
@@ -44,6 +46,14 @@ export function normalizeArchiveUrl(input: string) {
 export function normalizeAccountType(value: unknown): ArchiveAccountType {
   if (typeof value === "string" && archiveAccountTypes.includes(value as ArchiveAccountType)) {
     return value as ArchiveAccountType;
+  }
+
+  return "public";
+}
+
+export function normalizeAuthMode(value: unknown): ArchiveAuthMode {
+  if (typeof value === "string" && archiveAuthModes.includes(value as ArchiveAuthMode)) {
+    return value as ArchiveAuthMode;
   }
 
   return "public";

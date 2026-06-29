@@ -30,6 +30,8 @@ export async function GET(req: Request) {
       storageAggregate,
       latestPosts,
       failedScans,
+      workerHeartbeats,
+      authProfiles,
     ] = await Promise.all([
       prisma.archiveAccount.count(),
       prisma.archiveAccount.count({ where: { scanEnabled: true, status: { not: "paused" } } }),
@@ -54,6 +56,15 @@ export async function GET(req: Request) {
         orderBy: { createdAt: "desc" },
         take: 6,
       }),
+      prisma.archiveWorkerHeartbeat.findMany({
+        orderBy: { lastSeenAt: "desc" },
+        take: 3,
+      }),
+      prisma.archiveAuthProfile.findMany({
+        include: { _count: { select: { accounts: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 8,
+      }),
     ]);
 
     return NextResponse.json({
@@ -70,6 +81,8 @@ export async function GET(req: Request) {
         storageUsedBytes: storageAggregate._sum.sizeBytes || 0,
         latestPosts,
         failedScans,
+        workerHeartbeats,
+        authProfiles,
       },
     });
   } catch (error) {

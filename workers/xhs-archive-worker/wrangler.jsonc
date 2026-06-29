@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cleon-xhs-archive-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "upload_source_maps": true,
+  "alias": {
+    "@cloudflare/playwright": "./node_modules/@cloudflare/playwright/lib/index.js"
+  },
+  "browser": {
+    "binding": "BROWSER"
+  },
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "AUTH_STATE",
+      "id": "c45d4bb2a8aa4b528b2243a4c73c3a56"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ARCHIVE_BUCKET",
+      "bucket_name": "cleon"
+    }
+  ],
+  "vars": {
+    "WORKER_ID": "cloudflare-xhs-archive-worker",
+    "BROWSER_DAILY_BUDGET_SECONDS": "600",
+    "BROWSER_DAILY_SOFT_LIMIT_SECONDS": "540",
+    "MAX_POSTS_PER_SCAN": "8"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

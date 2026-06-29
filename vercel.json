@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/archive/worker/run?limit=3",
+      "path": "/api/archive/worker/health",
       "schedule": "0 23 * * *"
     }
   ]

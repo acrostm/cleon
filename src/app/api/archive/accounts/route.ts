@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordArchiveAudit } from "@/lib/archive/audit";
 import {
+  normalizeAuthMode,
   normalizeAccountType,
   normalizeArchiveUrl,
   normalizeScanIntervalSeconds,
@@ -45,6 +46,7 @@ export async function GET(req: Request) {
       },
       orderBy: { createdAt: "desc" },
       include: {
+        authProfile: true,
         _count: {
           select: { posts: true, scanJobs: true },
         },
@@ -70,6 +72,8 @@ export async function POST(req: Request) {
       profileUrl?: unknown;
       displayName?: unknown;
       accountType?: unknown;
+      authMode?: unknown;
+      authProfileId?: unknown;
       scanIntervalSeconds?: unknown;
       remark?: unknown;
       consentNote?: unknown;
@@ -80,12 +84,19 @@ export async function POST(req: Request) {
     }
 
     const accountType = normalizeAccountType(body?.accountType);
+    const authMode = normalizeAuthMode(body?.authMode);
+    const authProfileId = typeof body?.authProfileId === "string" && body.authProfileId.trim()
+      ? body.authProfileId.trim()
+      : undefined;
     const scanIntervalSeconds = normalizeScanIntervalSeconds(accountType, body?.scanIntervalSeconds);
     const account = await prisma.archiveAccount.create({
       data: {
         profileUrl,
         displayName: typeof body?.displayName === "string" ? body.displayName.trim() || undefined : undefined,
         accountType,
+        authMode,
+        authProfileId,
+        authStatus: authMode === "authorized_browser" ? "pending" : "none",
         scanIntervalSeconds,
         nextScanAt: getInitialNextScanAt(accountType, scanIntervalSeconds),
         remark: typeof body?.remark === "string" ? body.remark.trim() || undefined : undefined,
@@ -99,7 +110,7 @@ export async function POST(req: Request) {
       action: "ACCOUNT_CREATED",
       targetType: "ArchiveAccount",
       targetId: account.id,
-      metadata: { profileUrl, accountType, scanIntervalSeconds },
+      metadata: { profileUrl, accountType, authMode, authProfileId, scanIntervalSeconds },
       req,
     });
 

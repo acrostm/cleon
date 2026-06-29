@@ -7,6 +7,9 @@
     "build": "bash ./build-and-notify.sh",
     "build:next": "next build",
     "archive:worker": "node scripts/archive-worker.mjs",
+    "archive:cf:types": "pnpm --dir workers/xhs-archive-worker run types",
+    "archive:cf:deploy": "pnpm --dir workers/xhs-archive-worker run deploy",
+    "archive:cf:tail": "pnpm --dir workers/xhs-archive-worker run tail",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
