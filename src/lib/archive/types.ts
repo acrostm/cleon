@@ -9,6 +9,8 @@ export const archivePostStatuses = [
   "restricted",
   "login_required",
   "captcha_required",
+  "auth_expired",
+  "auth_setup_failed",
   "parse_failed",
   "archive_failed",
   "unknown",
@@ -18,11 +20,29 @@ export type ArchivePostStatus = (typeof archivePostStatuses)[number];
 export const archiveJobStatuses = ["pending", "running", "success", "failed"] as const;
 export type ArchiveJobStatus = (typeof archiveJobStatuses)[number];
 
+export const archiveAuthModes = ["public", "authorized_browser"] as const;
+export type ArchiveAuthMode = (typeof archiveAuthModes)[number];
+
+export const archiveAuthStatuses = [
+  "none",
+  "pending",
+  "active",
+  "expired",
+  "captcha_required",
+  "restricted",
+  "setup_failed",
+  "revoked",
+] as const;
+export type ArchiveAuthStatus = (typeof archiveAuthStatuses)[number];
+
 export const archiveErrorCodes = [
   "PAGE_TIMEOUT",
   "NETWORK_ERROR",
   "ACCESS_DENIED",
   "LOGIN_REQUIRED",
+  "AUTH_EXPIRED",
+  "AUTH_SETUP_FAILED",
+  "BROWSER_BUDGET_EXCEEDED",
   "CAPTCHA_REQUIRED",
   "PARSE_ERROR",
   "NO_CONTENT_FOUND",
@@ -48,6 +68,8 @@ export type ArchiveAccessState =
   | "restricted"
   | "login_required"
   | "captcha_required"
+  | "auth_expired"
+  | "auth_setup_failed"
   | "parse_failed"
   | "unknown";
 
@@ -79,4 +101,26 @@ export type ParsedArchiveProfile = {
   avatarUrl?: string;
   notes: ParsedArchivePostCard[];
   rawData?: Record<string, unknown>;
+};
+
+export type CloudflareArchiveAssetResult = {
+  assetType: "cover" | "image" | "video" | string;
+  sourceUrl: string;
+  storageUrl?: string;
+  sha256?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  width?: number;
+  height?: number;
+  downloadStatus?: "success" | "failed" | string;
+  errorMessage?: string;
+};
+
+export type CloudflareArchivePostResult = ParsedArchivePost & {
+  assets?: CloudflareArchiveAssetResult[];
+  coverStorageUrl?: string;
+};
+
+export type CloudflareArchiveProfileResult = ParsedArchiveProfile & {
+  accessState?: ArchiveAccessState;
 };

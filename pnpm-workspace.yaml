@@ -1,3 +1,7 @@
+packages:
+  - .
+  - workers/xhs-archive-worker
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver

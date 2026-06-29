@@ -5,6 +5,9 @@ import {
   MAX_ARCHIVE_IMAGES,
   type ArchiveAccessState,
   type ArchiveAccountType,
+  type CloudflareArchiveAssetResult,
+  type CloudflareArchivePostResult,
+  type CloudflareArchiveProfileResult,
   type ParsedArchivePost,
 } from "@/lib/archive/types";
 import { normalizeArchiveUrl } from "@/lib/archive/normalize";
@@ -31,14 +34,55 @@ type ScanArchiveAccountInput = {
   manual?: boolean;
 };
 
+type ClaimArchiveWorkerInput = {
+  workerId: string;
+  workerUrl?: string | null;
+  limit?: number;
+};
+
+type CompleteArchiveWorkerJobInput = {
+  jobId: string;
+  workerId?: string;
+  status: "success" | "failed";
+  durationMs?: number;
+  browserSeconds?: number;
+  errorCode?: string;
+  errorMessage?: string;
+  profile?: CloudflareArchiveProfileResult;
+  posts?: CloudflareArchivePostResult[];
+  rawResult?: Record<string, unknown>;
+};
+
+type WorkerHeartbeatInput = {
+  workerId: string;
+  workerUrl?: string | null;
+  status?: string;
+  dailyBudgetSeconds?: number;
+  dailyUsedSeconds?: number;
+  pausedUntil?: Date | null;
+  lastError?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Unknown archive error";
 
-const toJsonInput = (value: unknown) =>
-  value === null || value === undefined ? undefined : value as Prisma.InputJsonValue;
+const toJsonInput = (value: unknown) => {
+  if (value === null || value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+};
 
 function addSeconds(date: Date, seconds: number) {
   return new Date(date.getTime() + seconds * 1000);
+}
+
+function parseMaybeDate(value: unknown) {
+  if (!value) return undefined;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value;
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 function calculateNextScanAt(intervalSeconds: number, consecutiveFailures: number) {
@@ -48,6 +92,18 @@ function calculateNextScanAt(intervalSeconds: number, consecutiveFailures: numbe
 
 function classifyScanFailure(message: string, consecutiveFailures: number) {
   const normalized = message.toLowerCase();
+
+  if (normalized.includes("browser_budget_exceeded") || normalized.includes("browser time limit exceeded")) {
+    return { errorCode: "BROWSER_BUDGET_EXCEEDED", accountStatus: "active", shouldPause: false };
+  }
+
+  if (normalized.includes("auth_expired")) {
+    return { errorCode: "AUTH_EXPIRED", accountStatus: "login_required", shouldPause: true };
+  }
+
+  if (normalized.includes("auth_setup_failed")) {
+    return { errorCode: "AUTH_SETUP_FAILED", accountStatus: "login_required", shouldPause: true };
+  }
 
   if (normalized.includes("login_required")) {
     return { errorCode: "LOGIN_REQUIRED", accountStatus: "login_required", shouldPause: true };
@@ -66,6 +122,22 @@ function classifyScanFailure(message: string, consecutiveFailures: number) {
   }
 
   return { errorCode: "PARSE_ERROR", accountStatus: consecutiveFailures >= 5 ? "paused" : "unstable", shouldPause: consecutiveFailures >= 5 };
+}
+
+function authStatusFromFailure(errorCode?: string | null) {
+  switch (errorCode) {
+    case "LOGIN_REQUIRED":
+    case "AUTH_EXPIRED":
+      return "expired";
+    case "CAPTCHA_REQUIRED":
+      return "captcha_required";
+    case "ACCESS_DENIED":
+      return "restricted";
+    case "AUTH_SETUP_FAILED":
+      return "setup_failed";
+    default:
+      return undefined;
+  }
 }
 
 function archiveStatusFromAccessState(accessState: ArchiveAccessState) {
@@ -168,6 +240,48 @@ async function replaceArchiveAssets(post: { id: string; accountId: string | null
         mimeType: upload.mimeType,
         sizeBytes: upload.sizeBytes,
         downloadStatus: "success",
+      },
+    });
+  }
+
+  await prisma.archivePost.update({
+    where: { id: post.id },
+    data: { coverStorageUrl },
+  });
+
+  return successfulHashes;
+}
+
+async function replaceArchiveAssetsFromWorker(post: { id: string; accountId: string | null }, assets: CloudflareArchiveAssetResult[] | undefined) {
+  const normalizedAssets = (assets || [])
+    .filter((asset) => asset.sourceUrl)
+    .slice(0, MAX_ARCHIVE_IMAGES);
+
+  if (normalizedAssets.length === 0) return [];
+
+  await prisma.archiveAsset.deleteMany({ where: { postId: post.id } });
+
+  let coverStorageUrl: string | null = null;
+  const successfulHashes: string[] = [];
+
+  for (const [index, asset] of normalizedAssets.entries()) {
+    const downloadStatus = asset.downloadStatus || (asset.storageUrl ? "success" : "failed");
+    if (asset.storageUrl && !coverStorageUrl) coverStorageUrl = asset.storageUrl;
+    if (asset.sha256) successfulHashes.push(asset.sha256);
+
+    await prisma.archiveAsset.create({
+      data: {
+        postId: post.id,
+        assetType: asset.assetType || (index === 0 ? "cover" : "image"),
+        sourceUrl: asset.sourceUrl,
+        storageUrl: asset.storageUrl,
+        sha256: asset.sha256,
+        mimeType: asset.mimeType,
+        width: asset.width,
+        height: asset.height,
+        sizeBytes: asset.sizeBytes,
+        downloadStatus,
+        errorMessage: asset.errorMessage,
       },
     });
   }
@@ -316,6 +430,106 @@ export async function importArchivePostFromUrl({ url, accountId, notify = true }
       statusEvents: { orderBy: { checkedAt: "desc" }, take: 5 },
     },
   });
+}
+
+async function upsertArchivePostFromWorker({
+  detail,
+  accountId,
+  notify = true,
+}: {
+  detail: CloudflareArchivePostResult;
+  accountId: string;
+  notify?: boolean;
+}) {
+  const now = new Date();
+  const status = archiveStatusFromAccessState(detail.accessState);
+  const contentHash = contentHashFor(detail);
+  const existing = await prisma.archivePost.findUnique({
+    where: { originalUrl: detail.originalUrl },
+    include: { account: true },
+  });
+  const triggerType = !existing?.archivedAt
+    ? "first_archive"
+    : existing.contentHash !== contentHash
+      ? "content_changed"
+      : "cloudflare_recheck";
+
+  const post = existing
+    ? await prisma.archivePost.update({
+      where: { id: existing.id },
+      data: {
+        accountId,
+        platformNoteId: detail.platformNoteId,
+        title: detail.title,
+        contentText: detail.contentText,
+        coverSourceUrl: detail.coverSourceUrl,
+        coverStorageUrl: detail.coverStorageUrl || existing.coverStorageUrl,
+        authorName: detail.authorName,
+        publishTime: parseMaybeDate(detail.publishTime),
+        archivedAt: status === "visible" ? (existing.archivedAt || now) : existing.archivedAt,
+        lastSeenAt: status === "visible" ? now : existing.lastSeenAt,
+        lastCheckedAt: now,
+        status,
+        contentHash,
+        rawData: toJsonInput(detail.rawData),
+        archiveError: null,
+      },
+    })
+    : await prisma.archivePost.create({
+      data: {
+        accountId,
+        originalUrl: detail.originalUrl,
+        platformNoteId: detail.platformNoteId,
+        title: detail.title,
+        contentText: detail.contentText,
+        coverSourceUrl: detail.coverSourceUrl,
+        coverStorageUrl: detail.coverStorageUrl,
+        authorName: detail.authorName,
+        publishTime: parseMaybeDate(detail.publishTime),
+        archivedAt: status === "visible" ? now : undefined,
+        lastSeenAt: status === "visible" ? now : undefined,
+        lastCheckedAt: now,
+        status,
+        contentHash,
+        rawData: toJsonInput(detail.rawData),
+      },
+    });
+
+  if (existing && existing.status !== status) {
+    await prisma.archiveStatusEvent.create({
+      data: {
+        postId: post.id,
+        oldStatus: existing.status,
+        newStatus: status,
+        reason: "Cloudflare authorized worker status update",
+      },
+    });
+  }
+
+  if (detail.assets?.length) {
+    await replaceArchiveAssetsFromWorker(post, detail.assets);
+  }
+
+  await createSnapshot(post.id, triggerType);
+
+  if (triggerType === "first_archive") {
+    await prisma.archiveAccount.update({
+      where: { id: accountId },
+      data: { recentNewPostAt: now },
+    });
+  }
+
+  const account = await prisma.archiveAccount.findUnique({ where: { id: accountId } });
+  if (notify && status === "visible" && triggerType === "first_archive") {
+    await notifyArchivePostCreated({
+      accountName: getAccountName(account),
+      title: post.title,
+      body: `Cloudflare 授权 worker 已归档，图片数: ${detail.assets?.length || detail.imageUrls.length}`,
+      url: post.originalUrl,
+    });
+  }
+
+  return post;
 }
 
 export async function recheckArchivePost(postId: string, notify = true) {
@@ -553,6 +767,259 @@ export async function runArchiveWorkerBatch(limit = 3) {
     scannedAccounts: scanResults.length,
     recheckedPosts: statusResults.length,
   };
+}
+
+export async function recordArchiveWorkerHeartbeat(input: WorkerHeartbeatInput) {
+  const now = new Date();
+  return prisma.archiveWorkerHeartbeat.upsert({
+    where: { workerId: input.workerId },
+    create: {
+      workerId: input.workerId,
+      workerUrl: input.workerUrl || undefined,
+      status: input.status || "online",
+      dailyBudgetSeconds: input.dailyBudgetSeconds ?? 600,
+      dailyUsedSeconds: input.dailyUsedSeconds ?? 0,
+      pausedUntil: input.pausedUntil || undefined,
+      lastError: input.lastError || undefined,
+      metadata: toJsonInput(input.metadata),
+      lastSeenAt: now,
+    },
+    update: {
+      workerUrl: input.workerUrl || undefined,
+      status: input.status || "online",
+      ...(input.dailyBudgetSeconds !== undefined ? { dailyBudgetSeconds: input.dailyBudgetSeconds } : {}),
+      ...(input.dailyUsedSeconds !== undefined ? { dailyUsedSeconds: input.dailyUsedSeconds } : {}),
+      pausedUntil: input.pausedUntil || undefined,
+      lastError: input.lastError || undefined,
+      metadata: toJsonInput(input.metadata),
+      lastSeenAt: now,
+    },
+  });
+}
+
+export async function claimArchiveWorkerJobs({ workerId, workerUrl, limit = 1 }: ClaimArchiveWorkerInput) {
+  await recordArchiveWorkerHeartbeat({
+    workerId,
+    workerUrl,
+    status: "claiming",
+  });
+
+  const now = new Date();
+  const runningThreshold = addSeconds(now, -10 * 60);
+  const accounts = await prisma.archiveAccount.findMany({
+    where: {
+      scanEnabled: true,
+      status: { notIn: ["paused", "captcha_required", "restricted"] },
+      OR: [
+        { nextScanAt: null },
+        { nextScanAt: { lte: now } },
+      ],
+    },
+    include: { authProfile: true },
+    orderBy: [{ nextScanAt: "asc" }, { createdAt: "asc" }],
+    take: Math.min(Math.max(limit * 4, 1), 12),
+  });
+
+  const jobs = [];
+  for (const account of accounts) {
+    if (jobs.length >= limit) break;
+    if (account.status === "login_required" && account.authMode !== "authorized_browser") continue;
+    if (account.authMode === "authorized_browser" && (!account.authProfile || account.authProfile.status !== "active")) continue;
+
+    const runningJob = await prisma.archiveScanJob.findFirst({
+      where: {
+        accountId: account.id,
+        status: "running",
+        startedAt: { gte: runningThreshold },
+      },
+    });
+    if (runningJob) continue;
+
+    const job = await prisma.archiveScanJob.create({
+      data: {
+        accountId: account.id,
+        jobType: account.authMode === "authorized_browser" ? "cloudflare_authorized_profile_scan" : "cloudflare_public_profile_scan",
+        status: "running",
+        startedAt: now,
+        rawResult: {
+          workerId,
+          workerUrl,
+          authMode: account.authMode,
+        },
+      },
+    });
+
+    jobs.push({
+      jobId: job.id,
+      account: {
+        id: account.id,
+        profileUrl: account.profileUrl,
+        displayName: account.displayName,
+        nickname: account.nickname,
+        authMode: account.authMode,
+        authStatus: account.authStatus,
+        scanIntervalSeconds: account.scanIntervalSeconds,
+        authProfile: account.authProfile
+          ? {
+            id: account.authProfile.id,
+            name: account.authProfile.name,
+            authStateKey: account.authProfile.authStateKey,
+            status: account.authProfile.status,
+          }
+          : null,
+      },
+    });
+  }
+
+  return { jobs };
+}
+
+export async function completeArchiveWorkerJob(input: CompleteArchiveWorkerJobInput) {
+  const job = await prisma.archiveScanJob.findUnique({
+    where: { id: input.jobId },
+    include: { account: { include: { authProfile: true } } },
+  });
+  if (!job || !job.account) throw new Error("Archive worker job not found");
+
+  const account = job.account;
+  const finishedAt = new Date();
+  const durationMs = input.durationMs ?? (job.startedAt ? finishedAt.getTime() - job.startedAt.getTime() : undefined);
+
+  if (input.workerId) {
+    await recordArchiveWorkerHeartbeat({
+      workerId: input.workerId,
+      status: input.status === "success" ? "online" : "error",
+      dailyUsedSeconds: input.browserSeconds,
+      lastError: input.status === "failed" ? input.errorMessage || input.errorCode || null : null,
+    });
+  }
+
+  if (input.status === "failed") {
+    const consecutiveFailures = account.consecutiveFailures + 1;
+    const message = input.errorMessage || input.errorCode || "Cloudflare archive worker failed";
+    const failure = input.errorCode
+      ? { errorCode: input.errorCode, accountStatus: classifyScanFailure(input.errorCode, consecutiveFailures).accountStatus, shouldPause: classifyScanFailure(input.errorCode, consecutiveFailures).shouldPause }
+      : classifyScanFailure(message, consecutiveFailures);
+    const authStatus = authStatusFromFailure(failure.errorCode);
+
+    await prisma.archiveScanJob.update({
+      where: { id: job.id },
+      data: {
+        status: "failed",
+        finishedAt,
+        durationMs,
+        errorCode: failure.errorCode,
+        errorMessage: message,
+        rawResult: toJsonInput(input.rawResult),
+      },
+    });
+    await prisma.archiveAccount.update({
+      where: { id: account.id },
+      data: {
+        lastScannedAt: finishedAt,
+        nextScanAt: failure.errorCode === "BROWSER_BUDGET_EXCEEDED"
+          ? addSeconds(finishedAt, 60 * 60)
+          : calculateNextScanAt(account.scanIntervalSeconds, consecutiveFailures),
+        consecutiveFailures,
+        scanEnabled: failure.shouldPause ? false : account.scanEnabled,
+        status: failure.accountStatus,
+        ...(authStatus
+          ? {
+            authStatus,
+            lastAuthCheckAt: finishedAt,
+            authFailureReason: message,
+          }
+          : {}),
+      },
+    });
+    if (account.authProfileId && authStatus) {
+      await prisma.archiveAuthProfile.update({
+        where: { id: account.authProfileId },
+        data: {
+          status: authStatus === "expired" ? "pending" : authStatus,
+          lastFailureAt: finishedAt,
+          failureReason: message,
+        },
+      });
+    }
+
+    await notifyArchiveFailure({
+      accountName: getAccountName(account),
+      body: message,
+      url: account.profileUrl,
+    });
+    if (failure.shouldPause) {
+      await notifyArchiveAccountPaused({
+        accountName: getAccountName(account),
+        body: `原因: ${failure.errorCode}\nCloudflare worker 已暂停该账号。`,
+        url: account.profileUrl,
+      });
+    }
+
+    return prisma.archiveScanJob.findUnique({ where: { id: job.id } });
+  }
+
+  const posts = input.posts || [];
+  let newCount = 0;
+  if (input.profile) {
+    await prisma.archiveAccount.update({
+      where: { id: account.id },
+      data: {
+        nickname: input.profile.nickname,
+        avatarUrl: input.profile.avatarUrl,
+        platformUserId: input.profile.platformUserId,
+      },
+    });
+  }
+
+  for (const detail of posts) {
+    const existing = await prisma.archivePost.findUnique({ where: { originalUrl: detail.originalUrl } });
+    if (!existing) newCount += 1;
+    await upsertArchivePostFromWorker({ detail, accountId: account.id, notify: !existing });
+  }
+
+  await prisma.archiveScanJob.update({
+    where: { id: job.id },
+    data: {
+      status: "success",
+      finishedAt,
+      durationMs,
+      discoveredCount: input.profile?.notes?.length ?? posts.length,
+      newCount,
+      rawResult: toJsonInput({
+        workerId: input.workerId,
+        browserSeconds: input.browserSeconds,
+        profile: input.profile,
+        postCount: posts.length,
+        ...input.rawResult,
+      }),
+    },
+  });
+  await prisma.archiveAccount.update({
+    where: { id: account.id },
+    data: {
+      lastScannedAt: finishedAt,
+      lastSuccessAt: finishedAt,
+      nextScanAt: calculateNextScanAt(account.scanIntervalSeconds, 0),
+      consecutiveFailures: 0,
+      status: "active",
+      authStatus: account.authMode === "authorized_browser" ? "active" : account.authStatus,
+      lastAuthCheckAt: account.authMode === "authorized_browser" ? finishedAt : account.lastAuthCheckAt,
+      authFailureReason: null,
+    },
+  });
+  if (account.authProfileId && account.authMode === "authorized_browser") {
+    await prisma.archiveAuthProfile.update({
+      where: { id: account.authProfileId },
+      data: {
+        status: "active",
+        lastVerifiedAt: finishedAt,
+        failureReason: null,
+      },
+    });
+  }
+
+  return prisma.archiveScanJob.findUnique({ where: { id: job.id } });
 }
 
 export function getInitialNextScanAt(accountType: ArchiveAccountType, scanIntervalSeconds: number) {
