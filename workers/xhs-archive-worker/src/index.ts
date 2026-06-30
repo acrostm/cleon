@@ -785,6 +785,40 @@ async function prepareXhsQrLogin(page: Page) {
   }
 }
 
+async function switchToXhsPhoneLogin(page: Page) {
+  const switchButton = await firstVisibleLocator(page, XHS_PHONE_LOGIN_SWITCH_SELECTORS, 700);
+  if (!switchButton) return false;
+
+  await switchButton.click({ timeout: 2500 }).catch(() => undefined);
+  await settleXhsLoginPage(page);
+  return true;
+}
+
+async function prepareXhsPhoneLogin(page: Page) {
+  if (await hasXhsPhoneNumberInput(page)) return true;
+
+  await switchToXhsPhoneLogin(page);
+  if (await hasXhsPhoneNumberInput(page)) return true;
+
+  for (const url of XHS_LOGIN_URLS) {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 35_000 }).catch(() => undefined);
+    await settleXhsLoginPage(page);
+
+    if (await hasXhsPhoneNumberInput(page)) return true;
+    await switchToXhsPhoneLogin(page);
+    if (await hasXhsPhoneNumberInput(page)) return true;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (!await clickXhsLoginTrigger(page)) break;
+      if (await hasXhsPhoneNumberInput(page)) return true;
+      await switchToXhsPhoneLogin(page);
+      if (await hasXhsPhoneNumberInput(page)) return true;
+    }
+  }
+
+  return false;
+}
+
 async function captureXhsLoginScreenshot(page: Page) {
   const locator = await firstVisibleLocator(page, XHS_LOGIN_SCREENSHOT_SELECTORS, 500);
   if (locator) {
