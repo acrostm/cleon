@@ -1,4 +1,4 @@
-import { acquire, connect, launch, type BrowserContextOptions, type BrowserWorker, type Page } from "@cloudflare/playwright";
+import { acquire, connect, launch, type BrowserContext, type BrowserContextOptions, type BrowserWorker, type Locator, type Page } from "@cloudflare/playwright";
 
 type Env = {
   BROWSER: BrowserWorker;
@@ -178,6 +178,28 @@ const XHS_LOGIN_PENDING_SELECTORS = [
   "text=扫码成功",
   "text=登录成功",
   "text=确认登录",
+];
+
+const XHS_VERIFICATION_CODE_SELECTORS = [
+  "input[autocomplete='one-time-code']",
+  "input[inputmode='numeric']",
+  "input[type='tel']",
+  "input[type='number']",
+  "input[placeholder*='验证码']",
+  "input[placeholder*='短信']",
+  "input[placeholder*='code' i]",
+];
+
+const XHS_VERIFICATION_SUBMIT_SELECTORS = [
+  "button:has-text('确认')",
+  "button:has-text('登录')",
+  "button:has-text('提交')",
+  "[role='button']:has-text('确认')",
+  "[role='button']:has-text('登录')",
+  "[role='button']:has-text('提交')",
+  "text=确认",
+  "text=登录",
+  "text=提交",
 ];
 
 const json = (body: unknown, init?: ResponseInit) =>
@@ -712,6 +734,24 @@ async function hasXhsPendingLoginConfirmation(page: Page) {
   return Boolean(await firstVisibleLocator(page, XHS_LOGIN_PENDING_SELECTORS, 600));
 }
 
+async function visibleLocatorsForSelectors(page: Page, selectors: string[]) {
+  const visibleLocators: Locator[] = [];
+  for (const selector of selectors) {
+    const locator = page.locator(selector);
+    const count = Math.min(await locator.count().catch(() => 0), 8);
+    for (let index = 0; index < count; index += 1) {
+      const item = locator.nth(index);
+      if (await item.isVisible().catch(() => false)) visibleLocators.push(item);
+    }
+    if (visibleLocators.length) return visibleLocators;
+  }
+  return visibleLocators;
+}
+
+async function hasXhsVerificationCodeInput(page: Page) {
+  return Boolean(await firstVisibleLocator(page, XHS_VERIFICATION_CODE_SELECTORS, 600));
+}
+
 async function clickXhsLoginTrigger(page: Page) {
   const selectorLocator = await firstVisibleLocator(page, XHS_LOGIN_TRIGGER_SELECTORS, 700);
   if (selectorLocator) {
@@ -755,6 +795,86 @@ async function captureXhsLoginScreenshot(page: Page) {
   }
 
   return page.screenshot({ type: "png" });
+}
+
+function normalizeVerificationCode(value: unknown) {
+  return typeof value === "string" ? value.replace(/\D/g, "").slice(0, 8) : "";
+}
+
+async function fillXhsVerificationCode(page: Page, code: string) {
+  const candidateInputs = await visibleLocatorsForSelectors(page, XHS_VERIFICATION_CODE_SELECTORS);
+  if (candidateInputs.length > 1 && candidateInputs.length >= code.length) {
+    for (let index = 0; index < code.length; index += 1) {
+      await candidateInputs[index].fill(code[index], { timeout: 1500 }).catch(() => undefined);
+    }
+    return true;
+  }
+
+  const input = candidateInputs[0] || await firstVisibleLocator(page, XHS_VERIFICATION_CODE_SELECTORS, 800);
+  if (!input) return false;
+
+  await input.click({ timeout: 2000 }).catch(() => undefined);
+  await input.fill(code, { timeout: 2500 }).catch(async () => {
+    await page.keyboard.type(code, { delay: 60 }).catch(() => undefined);
+  });
+  return true;
+}
+
+async function submitXhsVerificationCode(page: Page) {
+  const button = await firstVisibleLocator(page, XHS_VERIFICATION_SUBMIT_SELECTORS, 800);
+  if (button) {
+    await button.click({ timeout: 2500 }).catch(() => undefined);
+  } else {
+    await page.keyboard.press("Enter").catch(() => undefined);
+  }
+  await settleXhsLoginPage(page);
+}
+
+async function buildAuthStatusResponse(
+  env: Env,
+  sessionId: string,
+  authStateKey: string,
+  browser: Awaited<ReturnType<typeof connect>>,
+  context: BrowserContext,
+  page: Page,
+  fallbackMessage?: string,
+) {
+  await page.waitForTimeout(1000);
+  const storageState = await context.storageState({ indexedDB: true });
+  const authenticated = isAuthenticatedStorageState(storageState);
+
+  if (!authenticated
+    && !await hasXhsLoginQr(page)
+    && !await hasXhsPendingLoginConfirmation(page)
+    && !await hasXhsVerificationCodeInput(page)) {
+    await prepareXhsQrLogin(page);
+  }
+
+  const requiresVerificationCode = !authenticated && await hasXhsVerificationCodeInput(page);
+  const pendingConfirmation = !authenticated && !requiresVerificationCode && await hasXhsPendingLoginConfirmation(page);
+  const screenshot = await captureXhsLoginScreenshot(page);
+
+  if (authenticated) {
+    await putStorageState(env, authStateKey, storageState);
+    await env.AUTH_STATE.delete(`auth-session:${sessionId}`);
+    await browser.close();
+  }
+
+  return json({
+    success: true,
+    data: {
+      status: authenticated ? "active" : requiresVerificationCode ? "verification_code_required" : pendingConfirmation ? "pending_confirmation" : "pending",
+      authenticated,
+      screenshotDataUrl: `data:image/png;base64,${bytesToBase64(new Uint8Array(screenshot))}`,
+      message: authenticated
+        ? "Login state saved"
+        : fallbackMessage || (requiresVerificationCode
+          ? "Enter the SMS verification code sent to your phone"
+          : pendingConfirmation
+            ? "Confirm the login in the Xiaohongshu app"
+            : "Waiting for Xiaohongshu QR login"),
+    },
+  });
 }
 
 async function startAuth(request: Request, env: Env) {
@@ -810,28 +930,60 @@ async function authStatus(request: Request, env: Env) {
     viewport: { width: 1280, height: 900 },
   });
   const page = context.pages()[0] || await context.newPage();
-  await page.waitForTimeout(1000);
-  const storageState = await context.storageState({ indexedDB: true });
-  const authenticated = isAuthenticatedStorageState(storageState);
-  if (!authenticated && !await hasXhsLoginQr(page) && !await hasXhsPendingLoginConfirmation(page)) {
-    await prepareXhsQrLogin(page);
+  return buildAuthStatusResponse(env, sessionId, authStateKey, browser, context, page);
+}
+
+async function submitVerificationCode(request: Request, env: Env) {
+  const body = await request.json().catch(() => null) as {
+    sessionId?: string;
+    authStateKey?: string;
+    verificationCode?: string;
+  } | null;
+  const sessionId = body?.sessionId;
+  const authStateKey = body?.authStateKey;
+  const verificationCode = normalizeVerificationCode(body?.verificationCode);
+
+  if (!sessionId || !authStateKey) {
+    return json({ success: false, error: "sessionId and authStateKey are required" }, { status: 400 });
   }
-  const screenshot = await captureXhsLoginScreenshot(page);
-  if (authenticated) {
-    await putStorageState(env, authStateKey, storageState);
-    await env.AUTH_STATE.delete(`auth-session:${sessionId}`);
-    await browser.close();
+  if (verificationCode.length < 4) {
+    return json({ success: false, error: "verificationCode must be at least 4 digits" }, { status: 400 });
   }
 
-  return json({
-    success: true,
-    data: {
-      status: authenticated ? "active" : "pending",
-      authenticated,
-      screenshotDataUrl: `data:image/png;base64,${bytesToBase64(new Uint8Array(screenshot))}`,
-      message: authenticated ? "Login state saved" : "Waiting for Xiaohongshu QR login",
-    },
+  const sessionJson = await env.AUTH_STATE.get(`auth-session:${sessionId}`);
+  if (!sessionJson) {
+    return json({ success: true, data: { status: "expired", authenticated: false, message: "Login session expired" } });
+  }
+
+  const session = JSON.parse(sessionJson) as AuthSession;
+  if (session.authStateKey !== authStateKey) {
+    return json({ success: false, error: "Auth session key mismatch" }, { status: 403 });
+  }
+
+  const browser = await connect(env.BROWSER, sessionId);
+  const context = browser.contexts()[0] || await browser.newContext({
+    userAgent: XHS_LOGIN_USER_AGENT,
+    locale: "zh-CN",
+    viewport: { width: 1280, height: 900 },
   });
+  const page = context.pages()[0] || await context.newPage();
+  await page.waitForTimeout(500);
+
+  const filled = await fillXhsVerificationCode(page, verificationCode);
+  if (!filled) {
+    return buildAuthStatusResponse(
+      env,
+      sessionId,
+      authStateKey,
+      browser,
+      context,
+      page,
+      "Verification code input is not visible in the Browser Run page",
+    );
+  }
+
+  await submitXhsVerificationCode(page);
+  return buildAuthStatusResponse(env, sessionId, authStateKey, browser, context, page);
 }
 
 export default {
@@ -849,6 +1001,7 @@ export default {
     try {
       if (url.pathname === "/auth/start" && request.method === "POST") return startAuth(request, env);
       if (url.pathname === "/auth/status" && request.method === "GET") return authStatus(request, env);
+      if (url.pathname === "/auth/submit-code" && request.method === "POST") return submitVerificationCode(request, env);
       if (url.pathname === "/run" && request.method === "POST") {
         const result = await runOneBatch(env, request);
         return json({ success: true, data: result });
