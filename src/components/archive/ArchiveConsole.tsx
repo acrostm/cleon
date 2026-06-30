@@ -206,6 +206,11 @@ const statusTone: Record<string, string> = {
   restricted: "border-rose-300/30 bg-rose-300/10 text-rose-100",
   login_required: "border-amber-300/30 bg-amber-300/10 text-amber-100",
   captcha_required: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+  pending_confirmation: "border-cyan-300/30 bg-cyan-300/10 text-cyan-100",
+  verification_code_required: "border-amber-300/30 bg-amber-300/10 text-amber-100",
+  active: "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
+  pending: "border-cyan-300/30 bg-cyan-300/10 text-cyan-100",
+  expired: "border-rose-300/30 bg-rose-300/10 text-rose-100",
   parse_failed: "border-rose-300/30 bg-rose-300/10 text-rose-100",
   archive_failed: "border-rose-300/30 bg-rose-300/10 text-rose-100",
 };
@@ -294,6 +299,7 @@ export function ArchiveConsole() {
     status: string;
     message?: string;
   } | null>(null);
+  const [authVerificationCode, setAuthVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [accountForm, setAccountForm] = useState(emptyAccountForm);
@@ -465,6 +471,7 @@ export function ArchiveConsole() {
       }>(`/api/archive/auth-profiles/${profile.id}/start`, { method: "POST" });
       const sessionId = data.data.worker?.sessionId;
       if (!sessionId) throw new Error("Cloudflare worker did not return a login session");
+      setAuthVerificationCode("");
       setAuthLogin({
         profileId: profile.id,
         sessionId,
@@ -504,12 +511,61 @@ export function ArchiveConsole() {
         message: data.data?.message,
       });
       if (data.data?.authenticated) {
+        setAuthVerificationCode("");
         toast.success("Cloudflare auth profile is active");
         await Promise.all([loadAuthProfiles(), loadAccounts(), loadDashboard(), loadAuditLogs()]);
       }
     } catch (error) {
       console.error("[Archive Auth Login Poll Error]:", error);
       toast.error(error instanceof Error ? error.message : "Unable to poll Cloudflare login");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleSubmitAuthVerificationCode = async () => {
+    if (!authLogin || isBusy) return;
+
+    const verificationCode = authVerificationCode.replace(/\D/g, "").slice(0, 8);
+    if (verificationCode.length < 4) {
+      toast.error("Enter the SMS verification code sent to your phone");
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const data = await fetchJson<{
+        success: boolean;
+        data?: {
+          status?: string;
+          authenticated?: boolean;
+          screenshotDataUrl?: string;
+          message?: string;
+        };
+      }>(`/api/archive/auth-profiles/${authLogin.profileId}/submit-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: authLogin.sessionId,
+          code: verificationCode,
+        }),
+      });
+      setAuthLogin({
+        ...authLogin,
+        status: data.data?.status || authLogin.status,
+        screenshotDataUrl: data.data?.screenshotDataUrl || authLogin.screenshotDataUrl,
+        message: data.data?.message,
+      });
+      if (data.data?.authenticated) {
+        setAuthVerificationCode("");
+        toast.success("Cloudflare auth profile is active");
+        await Promise.all([loadAuthProfiles(), loadAccounts(), loadDashboard(), loadAuditLogs()]);
+      } else {
+        toast(data.data?.message || "Verification code submitted");
+      }
+    } catch (error) {
+      console.error("[Archive Auth Login Code Submit Error]:", error);
+      toast.error(error instanceof Error ? error.message : "Unable to submit verification code");
     } finally {
       setIsBusy(false);
     }
@@ -762,9 +818,15 @@ export function ArchiveConsole() {
       <AuthLoginDialog
         login={authLogin}
         isBusy={isBusy}
+        verificationCode={authVerificationCode}
+        onVerificationCodeChange={setAuthVerificationCode}
+        onSubmitCode={handleSubmitAuthVerificationCode}
         onPoll={handlePollAuthLogin}
         onOpenChange={(open) => {
-          if (!open) setAuthLogin(null);
+          if (!open) {
+            setAuthLogin(null);
+            setAuthVerificationCode("");
+          }
         }}
       />
     </main>
@@ -1429,6 +1491,9 @@ function AccountEditDialog({
 function AuthLoginDialog({
   login,
   isBusy,
+  verificationCode,
+  onVerificationCodeChange,
+  onSubmitCode,
   onPoll,
   onOpenChange,
 }: {
@@ -1440,6 +1505,9 @@ function AuthLoginDialog({
     message?: string;
   } | null;
   isBusy: boolean;
+  verificationCode: string;
+  onVerificationCodeChange: (value: string) => void;
+  onSubmitCode: () => void;
   onPoll: () => void;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -1467,6 +1535,39 @@ function AuthLoginDialog({
               <MiniStat label="Status" value={login.status} />
               <MiniStat label="Message" value={login.message || "Waiting"} />
             </div>
+            <form
+              className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onSubmitCode();
+              }}
+            >
+              <div>
+                <p className="text-xs font-black uppercase tracking-normal text-slate-500">SMS verification code</p>
+                <p className="mt-1 text-xs text-slate-500">Use this after Xiaohongshu sends a phone verification code during QR login.</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={verificationCode}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={8}
+                  placeholder="Enter code"
+                  disabled={isBusy}
+                  onChange={(event) => onVerificationCodeChange(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                  className="h-11 border-white/10 bg-black/20 text-slate-100 placeholder:text-slate-600"
+                />
+                <Button
+                  type="submit"
+                  disabled={isBusy || verificationCode.replace(/\D/g, "").length < 4}
+                  className="h-11 rounded-md bg-amber-300 font-black text-slate-950 hover:bg-amber-200"
+                >
+                  {isBusy ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
+                  Submit code
+                </Button>
+              </div>
+            </form>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" disabled={isBusy} onClick={() => onOpenChange(false)} className="border-white/10 bg-white/[0.05] text-slate-100">
                 Close
