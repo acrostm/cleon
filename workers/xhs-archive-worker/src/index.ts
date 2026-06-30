@@ -1,4 +1,4 @@
-import { acquire, connect, launch, type BrowserContextOptions, type BrowserWorker } from "@cloudflare/playwright";
+import { acquire, connect, launch, type BrowserContextOptions, type BrowserWorker, type Page } from "@cloudflare/playwright";
 
 type Env = {
   BROWSER: BrowserWorker;
@@ -132,10 +132,53 @@ type AuthSession = {
 type BrowserStorageState = Exclude<BrowserContextOptions["storageState"], string | undefined>;
 
 const XHS_USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+const XHS_LOGIN_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 const XHS_HEADERS = {
   "User-Agent": XHS_USER_AGENT,
   "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 };
+
+const XHS_LOGIN_URLS = [
+  "https://www.xiaohongshu.com/explore",
+  "https://www.xiaohongshu.com/login",
+];
+
+const XHS_LOGIN_TRIGGER_SELECTORS = [
+  ".login-btn",
+  "[class*='login-btn']",
+  "button:has-text('登录')",
+  "[role='button']:has-text('登录')",
+  "text=登录",
+  "text=扫码登录",
+];
+
+const XHS_QR_SELECTORS = [
+  ".qrcode-box",
+  ".qrcode-img-box",
+  ".qrcode-img",
+  "[class*='qrcode']",
+  "[class*='qr-code']",
+  "img[src*='qrcode']",
+  "img[src*='qr']",
+  "canvas",
+  "text=扫码登录",
+];
+
+const XHS_LOGIN_SCREENSHOT_SELECTORS = [
+  ".qrcode-box",
+  ".qrcode-img-box",
+  "[class*='qrcode']",
+  "[class*='login'][class*='container']",
+  "[class*='login'][class*='modal']",
+  "[class*='login']",
+];
+
+const XHS_LOGIN_PENDING_SELECTORS = [
+  "text=请在手机上确认",
+  "text=扫码成功",
+  "text=登录成功",
+  "text=确认登录",
+];
 
 const json = (body: unknown, init?: ResponseInit) =>
   Response.json(body, {
@@ -646,6 +689,74 @@ async function runOneBatch(env: Env, request: Request | null) {
   return { claimed: jobs.length, completed };
 }
 
+async function settleXhsLoginPage(page: Page) {
+  await page.waitForLoadState("domcontentloaded", { timeout: 12_000 }).catch(() => undefined);
+  await page.waitForLoadState("networkidle", { timeout: 12_000 }).catch(() => undefined);
+  await page.waitForTimeout(1500);
+}
+
+async function firstVisibleLocator(page: Page, selectors: string[], timeout = 700) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    await locator.waitFor({ state: "visible", timeout }).catch(() => undefined);
+    if (await locator.isVisible().catch(() => false)) return locator;
+  }
+  return null;
+}
+
+async function hasXhsLoginQr(page: Page) {
+  return Boolean(await firstVisibleLocator(page, XHS_QR_SELECTORS, 600));
+}
+
+async function hasXhsPendingLoginConfirmation(page: Page) {
+  return Boolean(await firstVisibleLocator(page, XHS_LOGIN_PENDING_SELECTORS, 600));
+}
+
+async function clickXhsLoginTrigger(page: Page) {
+  const selectorLocator = await firstVisibleLocator(page, XHS_LOGIN_TRIGGER_SELECTORS, 700);
+  if (selectorLocator) {
+    await selectorLocator.click({ timeout: 2500 }).catch(() => undefined);
+    await settleXhsLoginPage(page);
+    return true;
+  }
+
+  const textLocator = page
+    .locator("button, [role='button'], a, div, span")
+    .filter({ hasText: /登录|登陆|扫码登录|Log in|Sign in/i })
+    .first();
+  await textLocator.waitFor({ state: "visible", timeout: 700 }).catch(() => undefined);
+  if (!await textLocator.isVisible().catch(() => false)) return false;
+
+  await textLocator.click({ timeout: 2500 }).catch(() => undefined);
+  await settleXhsLoginPage(page);
+  return true;
+}
+
+async function prepareXhsQrLogin(page: Page) {
+  for (const url of XHS_LOGIN_URLS) {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 35_000 }).catch(() => undefined);
+    await settleXhsLoginPage(page);
+    if (await hasXhsLoginQr(page)) return;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (!await clickXhsLoginTrigger(page)) break;
+      if (await hasXhsLoginQr(page)) return;
+    }
+  }
+}
+
+async function captureXhsLoginScreenshot(page: Page) {
+  const locator = await firstVisibleLocator(page, XHS_LOGIN_SCREENSHOT_SELECTORS, 500);
+  if (locator) {
+    const box = await locator.boundingBox().catch(() => null);
+    if (box && box.width >= 120 && box.height >= 120) {
+      return locator.screenshot({ type: "png" }).catch(() => page.screenshot({ type: "png" }));
+    }
+  }
+
+  return page.screenshot({ type: "png" });
+}
+
 async function startAuth(request: Request, env: Env) {
   const body = await request.json().catch(() => null) as { authProfileId?: string; authStateKey?: string } | null;
   if (!body?.authProfileId || !body.authStateKey) {
@@ -655,13 +766,13 @@ async function startAuth(request: Request, env: Env) {
   const { sessionId } = await acquire(env.BROWSER, { keep_alive: 600_000 });
   const browser = await connect(env.BROWSER, sessionId);
   const context = await browser.newContext({
-    userAgent: XHS_USER_AGENT,
+    userAgent: XHS_LOGIN_USER_AGENT,
     locale: "zh-CN",
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 1280, height: 900 },
   });
   const page = await context.newPage();
-  await page.goto("https://www.xiaohongshu.com/explore", { waitUntil: "networkidle", timeout: 35_000 }).catch(() => undefined);
-  const screenshot = await page.screenshot({ type: "png" });
+  await prepareXhsQrLogin(page);
+  const screenshot = await captureXhsLoginScreenshot(page);
   await env.AUTH_STATE.put(`auth-session:${sessionId}`, JSON.stringify({
     authProfileId: body.authProfileId,
     authStateKey: body.authStateKey,
@@ -694,15 +805,18 @@ async function authStatus(request: Request, env: Env) {
 
   const browser = await connect(env.BROWSER, sessionId);
   const context = browser.contexts()[0] || await browser.newContext({
-    userAgent: XHS_USER_AGENT,
+    userAgent: XHS_LOGIN_USER_AGENT,
     locale: "zh-CN",
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 1280, height: 900 },
   });
   const page = context.pages()[0] || await context.newPage();
   await page.waitForTimeout(1000);
-  const screenshot = await page.screenshot({ type: "png" });
   const storageState = await context.storageState({ indexedDB: true });
   const authenticated = isAuthenticatedStorageState(storageState);
+  if (!authenticated && !await hasXhsLoginQr(page) && !await hasXhsPendingLoginConfirmation(page)) {
+    await prepareXhsQrLogin(page);
+  }
+  const screenshot = await captureXhsLoginScreenshot(page);
   if (authenticated) {
     await putStorageState(env, authStateKey, storageState);
     await env.AUTH_STATE.delete(`auth-session:${sessionId}`);
@@ -715,7 +829,7 @@ async function authStatus(request: Request, env: Env) {
       status: authenticated ? "active" : "pending",
       authenticated,
       screenshotDataUrl: `data:image/png;base64,${bytesToBase64(new Uint8Array(screenshot))}`,
-      message: authenticated ? "Login state saved" : "Waiting for Xiaohongshu login",
+      message: authenticated ? "Login state saved" : "Waiting for Xiaohongshu QR login",
     },
   });
 }
