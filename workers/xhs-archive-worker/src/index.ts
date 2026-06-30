@@ -180,45 +180,14 @@ const XHS_LOGIN_PENDING_SELECTORS = [
   "text=确认登录",
 ];
 
-const XHS_PHONE_LOGIN_SWITCH_SELECTORS = [
-  "text=手机号登录",
-  "text=手机登录",
-  "text=验证码登录",
-  "text=短信登录",
-  "text=其他登录方式",
-  "button:has-text('手机号')",
-  "button:has-text('验证码')",
-  "[role='button']:has-text('手机号')",
-  "[role='button']:has-text('验证码')",
-];
-
-const XHS_PHONE_NUMBER_SELECTORS = [
-  "input[placeholder*='手机号']",
-  "input[placeholder*='手机号码']",
-  "input[placeholder*='请输入手机号']",
-  "input[autocomplete='tel']",
-  "input[name*='phone' i]",
-  "input[type='tel']",
-];
-
 const XHS_VERIFICATION_CODE_SELECTORS = [
   "input[autocomplete='one-time-code']",
+  "input[inputmode='numeric']",
+  "input[type='tel']",
+  "input[type='number']",
   "input[placeholder*='验证码']",
   "input[placeholder*='短信']",
   "input[placeholder*='code' i]",
-  "input[name*='code' i]",
-];
-
-const XHS_SEND_CODE_SELECTORS = [
-  "button:has-text('获取验证码')",
-  "button:has-text('发送验证码')",
-  "button:has-text('重新发送')",
-  "[role='button']:has-text('获取验证码')",
-  "[role='button']:has-text('发送验证码')",
-  "[role='button']:has-text('重新发送')",
-  "text=获取验证码",
-  "text=发送验证码",
-  "text=重新发送",
 ];
 
 const XHS_VERIFICATION_SUBMIT_SELECTORS = [
@@ -231,14 +200,6 @@ const XHS_VERIFICATION_SUBMIT_SELECTORS = [
   "text=确认",
   "text=登录",
   "text=提交",
-];
-
-const XHS_AGREEMENT_SELECTORS = [
-  "label:has-text('同意')",
-  "label:has-text('协议')",
-  "[role='checkbox']",
-  "input[type='checkbox']",
-  "[class*='checkbox']",
 ];
 
 const json = (body: unknown, init?: ResponseInit) =>
@@ -791,10 +752,6 @@ async function hasXhsVerificationCodeInput(page: Page) {
   return Boolean(await firstVisibleLocator(page, XHS_VERIFICATION_CODE_SELECTORS, 600));
 }
 
-async function hasXhsPhoneNumberInput(page: Page) {
-  return Boolean(await firstVisibleLocator(page, XHS_PHONE_NUMBER_SELECTORS, 600));
-}
-
 async function clickXhsLoginTrigger(page: Page) {
   const selectorLocator = await firstVisibleLocator(page, XHS_LOGIN_TRIGGER_SELECTORS, 700);
   if (selectorLocator) {
@@ -878,10 +835,6 @@ function normalizeVerificationCode(value: unknown) {
   return typeof value === "string" ? value.replace(/\D/g, "").slice(0, 8) : "";
 }
 
-function normalizePhoneNumber(value: unknown) {
-  return typeof value === "string" ? value.replace(/\D/g, "").slice(0, 15) : "";
-}
-
 async function fillXhsVerificationCode(page: Page, code: string) {
   const candidateInputs = await visibleLocatorsForSelectors(page, XHS_VERIFICATION_CODE_SELECTORS);
   if (candidateInputs.length > 1 && candidateInputs.length >= code.length) {
@@ -898,43 +851,6 @@ async function fillXhsVerificationCode(page: Page, code: string) {
   await input.fill(code, { timeout: 2500 }).catch(async () => {
     await page.keyboard.type(code, { delay: 60 }).catch(() => undefined);
   });
-  return true;
-}
-
-async function fillXhsPhoneNumber(page: Page, phoneNumber: string) {
-  const input = await firstVisibleLocator(page, XHS_PHONE_NUMBER_SELECTORS, 1000);
-  if (!input) return false;
-
-  await input.click({ timeout: 2000 }).catch(() => undefined);
-  await input.fill(phoneNumber, { timeout: 2500 }).catch(async () => {
-    await page.keyboard.type(phoneNumber, { delay: 60 }).catch(() => undefined);
-  });
-  return true;
-}
-
-async function acceptXhsAgreementIfPresent(page: Page) {
-  const agreement = await firstVisibleLocator(page, XHS_AGREEMENT_SELECTORS, 500);
-  if (!agreement) return false;
-
-  await agreement.click({ timeout: 1500 }).catch(() => undefined);
-  await page.waitForTimeout(300);
-  return true;
-}
-
-async function requestXhsVerificationCode(page: Page, phoneNumber: string) {
-  if (!await prepareXhsPhoneLogin(page)) return false;
-  if (!await fillXhsPhoneNumber(page, phoneNumber)) return false;
-
-  await acceptXhsAgreementIfPresent(page);
-
-  const sendButton = await firstVisibleLocator(page, XHS_SEND_CODE_SELECTORS, 1000);
-  if (sendButton) {
-    await sendButton.click({ timeout: 2500 }).catch(() => undefined);
-  } else {
-    await page.keyboard.press("Enter").catch(() => undefined);
-  }
-
-  await settleXhsLoginPage(page);
   return true;
 }
 
@@ -955,18 +871,13 @@ async function buildAuthStatusResponse(
   browser: Awaited<ReturnType<typeof connect>>,
   context: BrowserContext,
   page: Page,
-  options: {
-    fallbackMessage?: string;
-    fallbackStatus?: string;
-    skipAutoQrPrepare?: boolean;
-  } = {},
+  fallbackMessage?: string,
 ) {
   await page.waitForTimeout(1000);
   const storageState = await context.storageState({ indexedDB: true });
   const authenticated = isAuthenticatedStorageState(storageState);
 
-  if (!options.skipAutoQrPrepare
-    && !authenticated
+  if (!authenticated
     && !await hasXhsLoginQr(page)
     && !await hasXhsPendingLoginConfirmation(page)
     && !await hasXhsVerificationCodeInput(page)) {
@@ -986,14 +897,12 @@ async function buildAuthStatusResponse(
   return json({
     success: true,
     data: {
-      status: authenticated
-        ? "active"
-        : options.fallbackStatus || (requiresVerificationCode ? "verification_code_required" : pendingConfirmation ? "pending_confirmation" : "pending"),
+      status: authenticated ? "active" : requiresVerificationCode ? "verification_code_required" : pendingConfirmation ? "pending_confirmation" : "pending",
       authenticated,
       screenshotDataUrl: `data:image/png;base64,${bytesToBase64(new Uint8Array(screenshot))}`,
       message: authenticated
         ? "Login state saved"
-        : options.fallbackMessage || (requiresVerificationCode
+        : fallbackMessage || (requiresVerificationCode
           ? "Enter the SMS verification code sent to your phone"
           : pendingConfirmation
             ? "Confirm the login in the Xiaohongshu app"
@@ -1058,52 +967,6 @@ async function authStatus(request: Request, env: Env) {
   return buildAuthStatusResponse(env, sessionId, authStateKey, browser, context, page);
 }
 
-async function requestVerificationCode(request: Request, env: Env) {
-  const body = await request.json().catch(() => null) as {
-    sessionId?: string;
-    authStateKey?: string;
-    phoneNumber?: string;
-  } | null;
-  const sessionId = body?.sessionId;
-  const authStateKey = body?.authStateKey;
-  const phoneNumber = normalizePhoneNumber(body?.phoneNumber);
-
-  if (!sessionId || !authStateKey) {
-    return json({ success: false, error: "sessionId and authStateKey are required" }, { status: 400 });
-  }
-  if (phoneNumber.length < 8) {
-    return json({ success: false, error: "phoneNumber must be at least 8 digits" }, { status: 400 });
-  }
-
-  const sessionJson = await env.AUTH_STATE.get(`auth-session:${sessionId}`);
-  if (!sessionJson) {
-    return json({ success: true, data: { status: "expired", authenticated: false, message: "Login session expired" } });
-  }
-
-  const session = JSON.parse(sessionJson) as AuthSession;
-  if (session.authStateKey !== authStateKey) {
-    return json({ success: false, error: "Auth session key mismatch" }, { status: 403 });
-  }
-
-  const browser = await connect(env.BROWSER, sessionId);
-  const context = browser.contexts()[0] || await browser.newContext({
-    userAgent: XHS_LOGIN_USER_AGENT,
-    locale: "zh-CN",
-    viewport: { width: 1280, height: 900 },
-  });
-  const page = context.pages()[0] || await context.newPage();
-  await page.waitForTimeout(500);
-
-  const requested = await requestXhsVerificationCode(page, phoneNumber);
-  return buildAuthStatusResponse(env, sessionId, authStateKey, browser, context, page, {
-    fallbackMessage: requested
-      ? "SMS code requested; enter it in this dialog"
-      : "Phone verification login is not visible in the Browser Run page",
-    fallbackStatus: requested ? undefined : "phone_code_unavailable",
-    skipAutoQrPrepare: true,
-  });
-}
-
 async function submitVerificationCode(request: Request, env: Env) {
   const body = await request.json().catch(() => null) as {
     sessionId?: string;
@@ -1149,11 +1012,7 @@ async function submitVerificationCode(request: Request, env: Env) {
       browser,
       context,
       page,
-      {
-        fallbackMessage: "Use phone login to send an SMS code before submitting the code",
-        fallbackStatus: "phone_code_required",
-        skipAutoQrPrepare: true,
-      },
+      "Verification code input is not visible in the Browser Run page",
     );
   }
 
@@ -1176,7 +1035,6 @@ export default {
     try {
       if (url.pathname === "/auth/start" && request.method === "POST") return startAuth(request, env);
       if (url.pathname === "/auth/status" && request.method === "GET") return authStatus(request, env);
-      if (url.pathname === "/auth/request-code" && request.method === "POST") return requestVerificationCode(request, env);
       if (url.pathname === "/auth/submit-code" && request.method === "POST") return submitVerificationCode(request, env);
       if (url.pathname === "/run" && request.method === "POST") {
         const result = await runOneBatch(env, request);
